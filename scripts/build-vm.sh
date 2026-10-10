@@ -12,6 +12,6 @@ sudo podman run --rm -it --privileged --pull=newer \
     -v /var/lib/containers/storage:/var/lib/containers/storage \
     -v ./disk_config/vm.toml:/config.toml:ro \
     quay.io/centos-bootc/bootc-image-builder:latest \
-    --type qcow2 --rootfs xfs --chown "$(id -u):$(id -g)" \
+    --type qcow2 --rootfs btrfs --chown "$(id -u):$(id -g)" \
     "${IMAGE}"
 find output -name '*.qcow2' -exec ls -lh {} +

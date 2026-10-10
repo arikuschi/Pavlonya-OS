@@ -27,6 +27,9 @@ systemctl enable \
     pavlonya-update.timer \
     pavlonya-flatpaks.service
 
+# Für jeden Benutzer: Distroboxen täglich aktualisieren (läuft nach der Anmeldung)
+systemctl --global enable pavlonya-distrobox-upgrade.timer
+
 # NVIDIA: VRAM über Standby und Ruhezustand retten
 systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service
 

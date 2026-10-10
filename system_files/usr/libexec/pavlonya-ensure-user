@@ -1,0 +1,56 @@
+#!/usr/bin/bash
+# Sicherheitsnetz: Wurde bei der Installation kein normaler Benutzer angelegt
+# (Anaconda verlangt nur Root-Kennwort ODER Benutzer), fragt dieses Skript vor
+# dem Anmeldebildschirm nach einem und legt ihn als Administrator an.
+# Der Anmeldebildschirm zeigt root nicht an — ohne Benutzer kein Login.
+#
+#   --check   Exit 0, wenn ein Benutzer fehlt (Dienst läuft), sonst 1 (übersprungen)
+set -u
+
+has_user() {
+    getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { found = 1 } END { exit !found }'
+}
+
+if [[ "${1:-}" == "--check" ]]; then
+    has_user && exit 1
+    exit 0
+fi
+
+has_user && exit 0
+
+clear
+cat <<'TXT'
+==============================================================
+  Pavlonya OS — Benutzer anlegen
+
+  Bei der Installation wurde kein Benutzer angelegt. Ohne ihn
+  ist am Anmeldebildschirm keine Anmeldung möglich.
+  Der Benutzer bekommt Administratorrechte (sudo).
+==============================================================
+
+TXT
+
+while true; do
+    read -rp "Benutzername (klein, z. B. arikushi): " name
+    if [[ ! "${name}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+        echo "Nur Kleinbuchstaben, Ziffern, - und _; mit einem Buchstaben beginnen."
+        continue
+    fi
+    if getent passwd "${name}" > /dev/null; then
+        echo "Den Namen gibt es schon."
+        continue
+    fi
+    break
+done
+read -rp "Vollständiger Name (Enter = wie Benutzername): " full
+useradd -m -G wheel -c "${full:-${name}}" "${name}" || exit 1
+
+echo
+echo "Kennwort für ${name} festlegen:"
+until passwd "${name}"; do
+    echo "Bitte noch einmal."
+done
+
+echo
+echo "Benutzer ${name} angelegt. Weiter zum Anmeldebildschirm …"
+sleep 3

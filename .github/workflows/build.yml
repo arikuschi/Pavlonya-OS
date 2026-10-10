@@ -45,6 +45,7 @@ jobs:
           sudo podman build --pull=newer \
             --build-arg FEDORA_VERSION="${FEDORA_VERSION}" \
             --build-arg IMAGE_REF="${IMAGE_REF}" \
+            --label org.opencontainers.image.source="https://github.com/${{ github.repository }}" \
             -t "${IMAGE_NAME}:build" .
 
       - name: Rauchtest

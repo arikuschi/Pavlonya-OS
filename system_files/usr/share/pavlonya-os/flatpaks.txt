@@ -1,5 +1,6 @@
-# Flatpaks von Flathub — werden beim Start nachinstalliert, wenn sie fehlen
+# Flatpaks — werden beim Start nachinstalliert, wenn sie fehlen
 # (pavlonya-flatpaks.service). Entfernte Zeilen werden NICHT deinstalliert.
+# Zeile = App-ID (von Flathub) oder „<quelle> <App-ID>“ (z. B. cosmic).
 
 # Büro & Web
 com.google.Chrome
@@ -37,5 +38,5 @@ com.rawtherapee.RawTherapee
 # Gaming
 ru.linux_gaming.PortProton
 
-# COSMIC
-io.github.cosmic_utils.minimon-applet
+# COSMIC — nicht auf Flathub, sondern in der COSMIC-Quelle von System76
+cosmic io.github.cosmic_utils.minimon-applet

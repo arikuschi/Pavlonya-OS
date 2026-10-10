@@ -13,7 +13,7 @@ sudo podman run --rm -it --privileged --pull=newer \
     -v /var/lib/containers/storage:/var/lib/containers/storage \
     -v ./disk_config/iso.toml:/config.toml:ro \
     quay.io/centos-bootc/bootc-image-builder:latest \
-    --type anaconda-iso --rootfs xfs --chown "$(id -u):$(id -g)" \
+    --type anaconda-iso --rootfs btrfs --chown "$(id -u):$(id -g)" \
     "${IMAGE}"
 # bootc-image-builder nennt die Datei immer install.iso — hier sprechend
 # umbenennen: pavlonya-os-<tag>.iso (Tag aus dem Image, z. B. 44)

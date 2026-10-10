@@ -13,4 +13,14 @@ export DRACUT_NO_XATTR=1
 dracut --no-hostonly --kver "${KVER}" --reproducible --zstd -v --add ostree \
     -f "/usr/lib/modules/${KVER}/initramfs.img"
 
-lsinitrd "/usr/lib/modules/${KVER}/initramfs.img" | grep -E 'nvidia|amdgpu' | head
+# Prüfen statt nur anzeigen: beide Grafiktreiber müssen in der initramfs sein,
+# sonst bleibt der HDMI-Ausgang (hängt an der NVIDIA) beim Start schwarz.
+INITRD="$(lsinitrd "/usr/lib/modules/${KVER}/initramfs.img")"
+for mod in nvidia amdgpu; do
+    if grep -qE "/${mod}\.ko" <<< "${INITRD}"; then
+        echo "OK: ${mod} in der initramfs"
+    else
+        echo "FEHLER: ${mod} fehlt in der initramfs" >&2
+        exit 1
+    fi
+done

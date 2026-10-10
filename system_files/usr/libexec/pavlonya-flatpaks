@@ -1,18 +1,29 @@
 #!/usr/bin/bash
 # Fehlende Flatpaks aus /usr/share/pavlonya-os/flatpaks.txt nachinstallieren.
+#
+# Zeilenformat:  <app-id>              → von Flathub
+#                <quelle> <app-id>     → von einer anderen Quelle (z. B. cosmic)
 set -uo pipefail
 
 LIST=/usr/share/pavlonya-os/flatpaks.txt
 
 flatpak remote-add --system --if-not-exists flathub \
     https://dl.flathub.org/repo/flathub.flatpakrepo
+# COSMIC-Quelle von System76 — Applets wie Minimon gibt es nur dort
+flatpak remote-add --system --if-not-exists cosmic \
+    https://apt.pop-os.org/cosmic/cosmic.flatpakrepo
 
 FAILED=0
-while read -r app; do
-    if ! flatpak info --system "${app}" > /dev/null 2>&1; then
-        echo "Installiere ${app}"
-        flatpak install --system --noninteractive -y flathub "${app}" || FAILED=1
+while read -r first second; do
+    if [[ -n "${second}" ]]; then
+        remote="${first}"; app="${second}"
+    else
+        remote=flathub; app="${first}"
     fi
-done < <(sed -E 's/#.*$//; s/[[:space:]]+//g; /^$/d' "${LIST}")
+    if ! flatpak info --system "${app}" > /dev/null 2>&1; then
+        echo "Installiere ${app} (${remote})"
+        flatpak install --system --noninteractive -y "${remote}" "${app}" || FAILED=1
+    fi
+done < <(sed -E 's/#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//; /^$/d' "${LIST}")
 
 exit "${FAILED}"

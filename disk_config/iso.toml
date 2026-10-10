@@ -5,9 +5,19 @@
 # Im Installer NUR die Samsung 850 EVO auswählen. Hintergrund:
 # Vault → Pavlonya OS → „Vorfall: Installer löschte alle EFI-Partitionen".
 
+# Vorgaben im Kickstart (im Installer weiterhin änderbar):
+# - rootpw --lock: Root-Konto gesperrt. Dann verlangt Anaconda einen Benutzer
+#   mit Administratorrechten. Ohne diese Zeile reicht Anaconda ein Root-Kennwort,
+#   „Benutzer anlegen" ist nicht mehr rot — und der Anmeldebildschirm zeigt
+#   root nicht an (VM-Test 10.10.2026: kein Login möglich).
+# - Sprache, Tastatur, Zeitzone: Deutsch, de nodeadkeys, Berlin.
 [customizations.installer.kickstart]
 contents = """
 graphical
+lang de_DE.UTF-8
+keyboard --vckeymap=de-nodeadkeys --xlayouts='de (nodeadkeys)'
+timezone Europe/Berlin
+rootpw --lock
 """
 
 [customizations.installer.modules]

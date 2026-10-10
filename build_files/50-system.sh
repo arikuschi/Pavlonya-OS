@@ -58,6 +58,9 @@ fi
 # --- Selbstprüfung -----------------------------------------------------------
 test "$(systemctl get-default)" = graphical.target
 test -f /usr/share/wayland-sessions/cosmic.desktop
+# COSMIC-Vorgabe für die Tastatur: gilt für jeden Benutzer ohne eigene Einstellung
+# und damit auch für den Anmeldebildschirm (der liest die Einstellung des Benutzers)
+grep -q 'layout: "de"' /usr/share/cosmic/com.system76.CosmicComp/v1/xkb_config
 GREETER_USER="$(sed -nE 's/^\s*user\s*=\s*"([^"]+)".*/\1/p' /etc/greetd/cosmic-greeter.toml | head -1)"
 getent passwd "${GREETER_USER}" > /dev/null || {
     echo "FEHLER: Greeter-Benutzer '${GREETER_USER}' existiert nicht" >&2; exit 1; }

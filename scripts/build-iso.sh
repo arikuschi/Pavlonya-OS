@@ -15,4 +15,9 @@ sudo podman run --rm -it --privileged --pull=newer \
     quay.io/centos-bootc/bootc-image-builder:latest \
     --type anaconda-iso --rootfs xfs --chown "$(id -u):$(id -g)" \
     "${IMAGE}"
-find output -name '*.iso' -exec ls -lh {} +
+# bootc-image-builder nennt die Datei immer install.iso — hier sprechend
+# umbenennen: pavlonya-os-<tag>.iso (Tag aus dem Image, z. B. 44)
+TAG="${IMAGE##*:}"
+mv -f output/bootiso/install.iso "output/pavlonya-os-${TAG}.iso"
+rm -rf output/bootiso
+ls -lh "output/pavlonya-os-${TAG}.iso"

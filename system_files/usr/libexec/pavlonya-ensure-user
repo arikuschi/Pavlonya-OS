@@ -18,6 +18,11 @@ fi
 
 has_user && exit 0
 
+# Start- und Kernelmeldungen würden sonst durch die Abfrage laufen (VM-Test
+# 10.10.2026): Kernel-Konsole leise, Statusausgabe von systemd aus.
+dmesg --console-level 1 2>/dev/null || true
+kill -s RTMIN+21 1 2>/dev/null || true
+sleep 1
 clear
 cat <<'TXT'
 ==============================================================

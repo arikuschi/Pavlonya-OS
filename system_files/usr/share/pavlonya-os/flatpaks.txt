@@ -1,0 +1,41 @@
+# Flatpaks von Flathub — werden beim Start nachinstalliert, wenn sie fehlen
+# (pavlonya-flatpaks.service). Entfernte Zeilen werden NICHT deinstalliert.
+
+# Büro & Web
+com.google.Chrome
+org.chromium.Chromium
+one.ablaze.floorp
+org.mozilla.thunderbird
+org.onlyoffice.desktopeditors
+md.obsidian.Obsidian
+com.bitwarden.desktop
+org.cryptomator.Cryptomator
+org.telegram.desktop
+org.localsend.localsend_app
+org.qbittorrent.qBittorrent
+
+# Admin & Home-Lab
+com.mikrotik.WinBox
+org.remmina.Remmina
+org.gnome.Connections
+com.rustdesk.RustDesk
+org.filezillaproject.Filezilla
+de.capypara.FieldMonitor
+
+# Entwicklung
+dev.zed.Zed
+com.jetpackduba.Gitnuro
+
+# 3D & Grafik
+com.bambulab.BambuStudio
+com.orcaslicer.OrcaSlicer
+org.freecad.FreeCAD
+org.blender.Blender
+org.gimp.GIMP
+com.rawtherapee.RawTherapee
+
+# Gaming
+ru.linux_gaming.PortProton
+
+# COSMIC
+io.github.cosmic_utils.minimon-applet

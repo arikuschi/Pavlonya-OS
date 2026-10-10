@@ -1,0 +1,20 @@
+# Werkzeuge, die unter Pop!_OS selbst installiert wurden (Liste vom
+# 10.10.2026, Abgleich im Vault: Pavlonya OS → Programmauswahl).
+
+git
+rsync
+restic
+smartmontools
+nmap
+bind-utils                  # dig, nslookup        (Pop: bind9-dnsutils)
+parted
+dosfstools
+ntfs-3g                     # Windows-Platte
+7zip                        #                      (Pop: p7zip-full)
+
+cifs-utils                  # SMB zur TrueNAS
+nfs-utils                   # NFS zur TrueNAS      (Pop: nfs-common)
+fuse-sshfs                  #                      (Pop: sshfs)
+wireguard-tools
+openssh-clients
+openssh-server              # Laptop soll per SSH erreichbar sein (10.10.2026)

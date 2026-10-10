@@ -1,0 +1,13 @@
+[Unit]
+Description=Pavlonya OS: fehlende Flatpaks nachinstallieren
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/pavlonya-flatpaks
+Restart=on-failure
+RestartSec=5min
+
+[Install]
+WantedBy=multi-user.target

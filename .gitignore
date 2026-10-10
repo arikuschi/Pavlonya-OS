@@ -1,0 +1,8 @@
+# Niemals ins Repo
+cosign.key
+keys/cosign.key
+*.key
+disk_config/vm.toml
+
+# Build-Ergebnisse
+output/

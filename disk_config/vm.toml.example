@@ -1,0 +1,13 @@
+# Festplatten-Abbild (qcow2) für die Proxmox-VM 950.
+# Kopieren nach disk_config/vm.toml und Benutzer/Schlüssel eintragen.
+# vm.toml ist in .gitignore — kein Passwort ins Repo.
+
+[[customizations.user]]
+name = "arikushi"
+groups = ["wheel"]
+key = "ssh-ed25519 AAAA... HIER-DEIN-OEFFENTLICHER-SCHLUESSEL"
+# password = "..."   # nur falls ohne SSH-Schlüssel; dann die Datei nie teilen
+
+[[customizations.filesystem]]
+mountpoint = "/"
+minsize = "60 GiB"

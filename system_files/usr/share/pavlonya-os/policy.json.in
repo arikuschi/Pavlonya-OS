@@ -1,0 +1,15 @@
+{
+  "default": [{ "type": "insecureAcceptAnything" }],
+  "transports": {
+    "docker": {
+      "@IMAGE_REF@": [
+        {
+          "type": "sigstoreSigned",
+          "keyPath": "/etc/pki/containers/pavlonya-os.pub",
+          "signedIdentity": { "type": "matchRepository" }
+        }
+      ]
+    },
+    "docker-daemon": { "": [{ "type": "insecureAcceptAnything" }] }
+  }
+}

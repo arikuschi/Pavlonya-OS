@@ -1,0 +1,38 @@
+# Basissystem: Netzwerk, Bluetooth, Audio, Container, Dateisysteme.
+
+NetworkManager-wifi
+NetworkManager-bluetooth
+NetworkManager-tui
+firewalld
+
+bluez
+bluez-tools
+
+pipewire
+pipewire-pulseaudio
+pipewire-alsa
+wireplumber
+alsa-utils
+
+greetd                      # Unterbau von cosmic-greeter
+greetd-selinux
+polkit
+gnome-keyring
+xdg-user-dirs
+
+podman
+distrobox
+flatpak
+
+udisks2
+gvfs
+gvfs-mtp
+gvfs-smb
+gvfs-fuse
+gvfs-archive
+
+# Sprache: nur Deutsch und Englisch
+glibc-langpack-de
+glibc-langpack-en
+langpacks-de
+hunspell-de

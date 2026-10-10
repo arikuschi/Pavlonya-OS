@@ -31,7 +31,18 @@ systemctl enable \
 systemctl --global enable pavlonya-distrobox-upgrade.timer
 
 # NVIDIA: VRAM über Standby und Ruhezustand retten
-systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service
+# Welche Units es gibt, hängt von der Treiberversion bzw. Paketierung ab —
+# nur aktivieren, was vorhanden ist, und im Log festhalten.
+echo "### NVIDIA-Units im Image:"
+ls /usr/lib/systemd/system | grep -i nvidia || echo "(keine)"
+for unit in nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service \
+            nvidia-suspend-then-hibernate.service nvidia-powerd.service; do
+    if [[ -f "/usr/lib/systemd/system/${unit}" ]]; then
+        systemctl enable "${unit}"
+    else
+        echo "HINWEIS: ${unit} gibt es nicht"
+    fi
+done
 
 # Automatische Updates mit Neustart aus — Updates werden nur bereitgelegt
 # (pavlonya-update.timer) und beim nächsten Neustart aktiv.

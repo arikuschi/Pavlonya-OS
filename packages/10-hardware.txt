@@ -1,0 +1,25 @@
+# Firmware und Hardware — nur was im Nitro AN517-41 steckt
+# (statt @hardware-support, das Firmware für hunderte fremde Geräte zieht).
+
+amd-ucode-firmware          # CPU-Microcode Ryzen 5800H
+amd-gpu-firmware            # iGPU Cezanne
+nvidia-gpu-firmware         # GSP-Firmware, Pflicht für nvidia-open
+mt7xxx-firmware             # WLAN + Bluetooth MT7921
+alsa-sof-firmware           # Audio; ob nötig, am Gerät prüfen (dmesg | grep -i sof)
+
+fwupd                       # Firmware-Updates über LVFS
+pciutils
+usbutils
+lm_sensors
+
+# Energie: power-profiles-daemon, weil das COSMIC-Akku-Applet darüber umschaltet
+power-profiles-daemon
+switcheroo-control          # „Mit dedizierter Grafik starten" im Kontextmenü
+
+# Grafik-Stack
+mesa-dri-drivers
+mesa-vulkan-drivers
+mesa-va-drivers
+vulkan-loader
+vulkan-tools                # vulkaninfo: welche GPU antwortet
+libva-utils                 # vainfo

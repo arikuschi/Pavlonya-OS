@@ -1,0 +1,13 @@
+# Programme nativ im Image.
+
+code                        # VS Code, Microsoft-Repo (10-repos.sh)
+
+# Steam nativ statt Flatpak (Sergej, 10.10.2026): nutzt direkt den NVIDIA-
+# Treiber des Images. 32-Bit-NVIDIA kommt in 20-kernel-nvidia.sh dazu.
+steam                       # RPM Fusion nonfree
+mesa-dri-drivers.i686
+mesa-vulkan-drivers.i686
+gamemode
+
+# Tabby: kein Fedora-Paket, siehe 40-extras.sh
+# Claude Desktop: nur als .deb von Anthropic → Distrobox, siehe README

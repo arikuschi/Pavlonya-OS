@@ -1,0 +1,44 @@
+# COSMIC — nach den Requires von cosmic-session, nicht nach der comps-Gruppe
+# (die zieht LibreOffice, Firefox, VLC und Druck mit).
+
+cosmic-session
+cosmic-comp
+cosmic-greeter
+cosmic-initial-setup
+cosmic-panel
+cosmic-applets
+cosmic-launcher
+cosmic-app-library
+cosmic-workspaces
+cosmic-bg
+cosmic-notifications
+cosmic-osd
+cosmic-idle
+cosmic-settings
+cosmic-settings-daemon
+cosmic-randr
+cosmic-screenshot
+cosmic-files
+cosmic-term
+cosmic-edit
+cosmic-store                # Flatpaks per Mausklick
+cosmic-icon-theme
+
+xdg-desktop-portal
+xdg-desktop-portal-cosmic
+xdg-desktop-portal-gtk
+xorg-x11-server-Xwayland
+qt5-qtwayland
+qt6-qtwayland
+wl-clipboard
+
+default-fonts
+google-noto-color-emoji-fonts
+adw-gtk3-theme
+
+# Drucken: Brother MFC-L8690CDW per Driverless IPP (wie unter Pop!_OS)
+cups
+cups-filters
+system-config-printer
+sane-airscan
+simple-scan

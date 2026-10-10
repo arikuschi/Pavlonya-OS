@@ -1,0 +1,19 @@
+# Installations-ISO für den Laptop: grafisches Anaconda, Platten und
+# Partitionen wählst du selbst (Sergej, 10.10.2026). Bewusst KEINE
+# Partitionierung im Kickstart — sonst entscheidet der Installer.
+#
+# Im Installer NUR die Samsung 850 EVO auswählen. Hintergrund:
+# Vault → Pavlonya OS → „Vorfall: Installer löschte alle EFI-Partitionen".
+
+[customizations.installer.kickstart]
+contents = """
+graphical
+"""
+
+[customizations.installer.modules]
+enable = [
+  "org.fedoraproject.Anaconda.Modules.Localization",
+  "org.fedoraproject.Anaconda.Modules.Timezone",
+  "org.fedoraproject.Anaconda.Modules.Users",
+  "org.fedoraproject.Anaconda.Modules.Storage",
+]

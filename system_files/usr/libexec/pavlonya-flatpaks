@@ -1,0 +1,18 @@
+#!/usr/bin/bash
+# Fehlende Flatpaks aus /usr/share/pavlonya-os/flatpaks.txt nachinstallieren.
+set -uo pipefail
+
+LIST=/usr/share/pavlonya-os/flatpaks.txt
+
+flatpak remote-add --system --if-not-exists flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo
+
+FAILED=0
+while read -r app; do
+    if ! flatpak info --system "${app}" > /dev/null 2>&1; then
+        echo "Installiere ${app}"
+        flatpak install --system --noninteractive -y flathub "${app}" || FAILED=1
+    fi
+done < <(sed -E 's/#.*$//; s/[[:space:]]+//g; /^$/d' "${LIST}")
+
+exit "${FAILED}"

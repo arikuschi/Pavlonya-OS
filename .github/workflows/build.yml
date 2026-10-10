@@ -5,7 +5,7 @@ on:
     - cron: "30 4 * * *"      # täglich: Fedora- und NVIDIA-Updates einsammeln
   push:
     branches: [main]
-    paths-ignore: ["**.md"]
+    paths-ignore: ["**.md", "scripts/**", "disk_config/**"]   # betreffen nur ISO/VM, nicht das Image
   pull_request:
     branches: [main]
   workflow_dispatch:

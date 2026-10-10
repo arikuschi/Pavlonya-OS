@@ -29,7 +29,7 @@ Planung, Entscheidungen und Stand: Obsidian-Vault, Notiz **Pavlonya OS**.
 Lokal (zum Testen):
 
     scripts/build-local.sh
-    scripts/build-iso.sh          # Installations-ISO aus dem lokalen Image
+    scripts/build-iso.sh          # Installations-ISO → output/pavlonya-os-44.iso
     scripts/build-vm.sh           # qcow2 für Proxmox-VM 950
 
 Normal: Push nach GitHub → der Workflow baut, lädt nach

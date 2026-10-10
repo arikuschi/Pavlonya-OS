@@ -52,7 +52,7 @@ jobs:
         run: |
           sudo podman run --rm "${IMAGE_NAME}:build" bash -euxc '
             cat /usr/lib/pavlonya-os-release
-            rpm -q cosmic-session kmod-nvidia nvidia-driver steam code openssh-server
+            rpm -q cosmic-session kmod-nvidia nvidia-driver steam code openssh-server gnome-keyring-pam
             test -f /usr/share/wayland-sessions/cosmic.desktop
             test -x /usr/lib/opt/Tabby/tabby || test -x /opt/Tabby/tabby
             grep -q "${0}" /etc/containers/policy.json

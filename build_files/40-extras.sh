@@ -3,14 +3,17 @@
 set -euxo pipefail
 
 # --- Tabby (Terminal/SSH-Client) ---------------------------------------------
-# Kein Fedora-Paket; RPM aus dem neuesten GitHub-Release.
-URL="$(curl -fsSL https://api.github.com/repos/Eugeny/tabby/releases/latest \
-    | grep -oE '"browser_download_url": *"[^"]*linux-x64\.rpm"' \
-    | sed -E 's/.*"(https[^"]+)"/\1/' | head -1)"
-if [[ -z "${URL}" ]]; then
-    echo "FEHLER: Tabby-RPM im neuesten Release nicht gefunden" >&2
+# Kein Fedora-Paket; RPM aus dem neuesten GitHub-Release. Die Version kommt aus
+# der Weiterleitung von /releases/latest — die GitHub-API ist ohne Anmeldung auf
+# 60 Abfragen pro Stunde begrenzt und lieferte auf den Actions-Runnern 403.
+TAG="$(curl -fsSI https://github.com/Eugeny/tabby/releases/latest \
+    | sed -nE 's|^[Ll]ocation: .*/releases/tag/(v[0-9.]+).*|\1|p' | tr -d '\r')"
+if [[ -z "${TAG}" ]]; then
+    echo "FEHLER: neueste Tabby-Version nicht ermittelt" >&2
     exit 1
 fi
+URL="https://github.com/Eugeny/tabby/releases/download/${TAG}/tabby-${TAG#v}-linux-x64.rpm"
+echo "Tabby ${TAG}: ${URL}"
 dnf -y install "${URL}"
 
 # Tabby installiert nach /opt/Tabby. Zeigt /opt (wie bei bootc üblich) auf

@@ -57,3 +57,6 @@ Normal: Push nach GitHub → der Workflow baut, lädt nach
 
 `pavlonya-update.timer` lädt täglich das neue Image; aktiv wird es beim nächsten
 Neustart. Zurück zum vorherigen Stand: `sudo bootc rollback`, dann neu starten.
+
+Die Distroboxen (Claude Desktop, `dev`) aktualisiert `pavlonya-distrobox-upgrade.timer`
+einmal täglich, solange du angemeldet bist. Von Hand: `distrobox upgrade --all`.

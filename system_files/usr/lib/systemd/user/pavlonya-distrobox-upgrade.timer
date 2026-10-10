@@ -1,0 +1,11 @@
+[Unit]
+Description=Pavlonya OS: täglich die Distroboxen aktualisieren
+
+[Timer]
+OnBootSec=30min
+OnUnitActiveSec=1d
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

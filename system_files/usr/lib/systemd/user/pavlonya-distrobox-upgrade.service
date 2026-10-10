@@ -1,0 +1,6 @@
+[Unit]
+Description=Pavlonya OS: alle Distroboxen aktualisieren (u. a. Claude Desktop)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/distrobox upgrade --all

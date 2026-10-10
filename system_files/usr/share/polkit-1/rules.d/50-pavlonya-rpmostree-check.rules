@@ -1,0 +1,26 @@
+// Der COSMIC Store prüft beim Öffnen und beim Wechsel in „Aktualisierungen" mit
+// „rpm-ostree upgrade --check" auf Systemupdates. polkit fragt dafür dieselbe
+// Berechtigung ab wie fürs Installieren (org.projectatomic.rpmostree1.upgrade) —
+// das ergab eine Kennwortabfrage bei jedem Öffnen (VM-Test 11.10.2026).
+//
+// Wie bei Pop!_OS (Sergej, 11.10.2026): NUR das Nachsehen ohne Kennwort für
+// angemeldete Administratoren. Ein Systemupdate aus dem Store zu installieren
+// fragt weiterhin nach dem Kennwort. Unterschieden wird am Befehl des Aufrufers.
+polkit.addRule(function(action, subject) {
+    if (action.id != "org.projectatomic.rpmostree1.upgrade") {
+        return polkit.Result.NOT_HANDLED;
+    }
+    if (!(subject.local && subject.active && subject.isInGroup("wheel"))) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    try {
+        var cmd = polkit.spawn(["/usr/bin/sh", "-c",
+            "tr '\\000' ' ' < /proc/" + subject.pid + "/cmdline"]);
+        if (/^(\S*\/)?rpm-ostree upgrade --check\s*$/.test(cmd)) {
+            return polkit.Result.YES;
+        }
+    } catch (e) {
+        polkit.log("pavlonya-rpmostree-check: " + e);
+    }
+    return polkit.Result.NOT_HANDLED;
+});

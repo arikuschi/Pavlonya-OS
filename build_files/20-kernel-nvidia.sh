@@ -27,7 +27,13 @@ done
 
 dnf -y remove --no-autoremove \
     kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra
-dnf -y install "${SRC}"/kernel-rpms/*.rpm
+# Nur die Laufzeit-Pakete — kernel-devel und kernel-uki-virt aus dem Cache
+# zögen gut 90 weitere Pakete (Compiler, qemu-img) ins Image.
+KPKGS=()
+for name in kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra; do
+    KPKGS+=("${SRC}"/kernel-rpms/"${name}"-[0-9]*.rpm)
+done
+dnf -y install "${KPKGS[@]}"
 
 for h in 05-rpmostree.install 50-dracut.install; do
     if [[ -f "${HOOKS}/${h}.bak" ]]; then
@@ -39,9 +45,8 @@ done
 source "${SRC}/rpms/kmods/nvidia-vars"   # KERNEL_VERSION, NVIDIA_AKMOD_VERSION, DIST_ARCH
 
 dnf -y install "${SRC}"/rpms/ublue-os/ublue-os-nvidia-addons-*.rpm
-dnf config-manager setopt "fedora-nvidia*".enabled=1
-
-dnf -y install \
+# negativo17-Quelle (aus dem Addon) nur für diesen Aufruf, für die 32-Bit-Bibliotheken
+dnf -y install --enablerepo='fedora-nvidia*' \
     "${SRC}"/rpms/nvidia/*.x86_64.rpm \
     "${SRC}"/rpms/nvidia/*.noarch.rpm \
     "${SRC}/rpms/kmods/kmod-nvidia-${KERNEL_VERSION}-${NVIDIA_AKMOD_VERSION}.${DIST_ARCH}.rpm" \

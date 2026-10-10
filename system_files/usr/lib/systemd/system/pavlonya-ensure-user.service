@@ -1,0 +1,20 @@
+[Unit]
+Description=Pavlonya OS: Benutzer anlegen, falls bei der Installation keiner angelegt wurde
+After=systemd-user-sessions.service systemd-vconsole-setup.service plymouth-quit-wait.service
+Before=display-manager.service cosmic-greeter.service getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecCondition=/usr/libexec/pavlonya-ensure-user --check
+ExecStartPre=-/usr/bin/plymouth quit
+ExecStartPre=-/usr/bin/chvt 1
+ExecStart=/usr/libexec/pavlonya-ensure-user
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=graphical.target

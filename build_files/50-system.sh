@@ -25,7 +25,8 @@ systemctl enable \
     switcheroo-control.service \
     fstrim.timer \
     pavlonya-update.timer \
-    pavlonya-flatpaks.service
+    pavlonya-flatpaks.service \
+    pavlonya-ensure-user.service
 
 # Für jeden Benutzer: Distroboxen täglich aktualisieren (läuft nach der Anmeldung)
 systemctl --global enable pavlonya-distrobox-upgrade.timer

@@ -48,10 +48,10 @@ Normal: Push nach GitHub → der Workflow baut, lädt nach
 
        distrobox assemble create --file /usr/share/pavlonya-os/distrobox.ini
 
-5. Secure Boot: Ist es eingeschaltet, den Schlüssel der NVIDIA-Module einmal
-   registrieren (Pfad im Image prüfen, vermutlich so):
-
-       sudo mokutil --import /etc/pki/akmods/certs/akmods-ublue.der
+5. Secure Boot ist am Nitro aus (geprüft 11.10.2026). Die NVIDIA-Module sind mit dem
+   Universal-Blue-Schlüssel signiert (Signer „ublue kernel“); der Schlüssel liegt nicht
+   im Image. Soll Secure Boot an, vorher den öffentlichen Schlüssel aus ublue-os/akmods
+   holen und mit `mokutil --import` registrieren.
 
 ## Updates
 

@@ -1,0 +1,120 @@
+#!/usr/bin/bash
+# Ersteinrichtung nach der Anmeldung — mit Fortschrittsfenster.
+#
+# 1. Programme (Flatpaks): installiert pavlonya-flatpaks.service im Hintergrund;
+#    hier wird nur der Fortschritt angezeigt.
+# 2. Distroboxen (Claude Desktop, Entwicklung) anlegen.
+# 3. Abschlussmeldung.
+#
+# Läuft bei jeder Anmeldung, bis alles fertig ist; danach nie wieder
+# (Merker unter ~/.local/state/pavlonya-os). Wunsch 12.10.2026: beim
+# ersten Start sehen, was passiert und wann es fertig ist.
+set -u
+
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/pavlonya-os"
+DONE="${STATE}/ersteinrichtung-fertig"
+LOG="${STATE}/ersteinrichtung.log"
+LIST=/usr/share/pavlonya-os/flatpaks.txt
+BOXES=/usr/share/pavlonya-os/distrobox.ini
+TITLE="Pavlonya OS – Ersteinrichtung"
+
+[[ -e "${DONE}" ]] && exit 0
+mkdir -p "${STATE}"
+
+# App-IDs aus der Liste (Zeile = „<id>“ oder „<quelle> <id>“)
+mapfile -t APPS < <(sed -E 's/#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//; /^$/d' "${LIST}" | awk '{print $NF}')
+TOTAL=${#APPS[@]}
+
+installed_count() {
+    local n=0 a
+    for a in "${APPS[@]}"; do
+        flatpak info --system "${a}" > /dev/null 2>&1 && n=$((n + 1))
+    done
+    echo "${n}"
+}
+
+first_missing() {
+    local a
+    for a in "${APPS[@]}"; do
+        flatpak info --system "${a}" > /dev/null 2>&1 || { echo "${a##*.}"; return; }
+    done
+}
+
+box_exists() {
+    podman container exists "$1" 2> /dev/null
+}
+
+progress() {
+    # --- 1. Programme ---------------------------------------------------------
+    while :; do
+        n=$(installed_count)
+        echo $(( n * 70 / TOTAL ))
+        if (( n >= TOTAL )); then
+            echo "# Programme: alle ${TOTAL} installiert"
+            break
+        fi
+        if ! nm-online -q -t 2; then
+            echo "# Warte auf Internetverbindung … (Programme: ${n} von ${TOTAL})"
+        elif [[ "$(systemctl is-active pavlonya-flatpaks.service)" == "activating" ]]; then
+            cur=$(first_missing)
+            echo "# Programme werden installiert: ${n} von ${TOTAL}${cur:+ — gerade: ${cur}}"
+        else
+            # Dienst ist durch, aber es fehlt etwas: er versucht es alle 5 Minuten erneut
+            echo "# Programme: ${n} von ${TOTAL} — Rest folgt automatisch, weiter mit Schritt 2"
+            sleep 3
+            break
+        fi
+        sleep 3
+    done
+
+    # --- 2. Distroboxen -------------------------------------------------------
+    if box_exists claude && box_exists dev; then
+        echo 95
+        echo "# Claude Desktop und Entwicklungs-Box sind schon eingerichtet"
+    else
+        echo 72
+        echo "# Claude Desktop wird eingerichtet (Ubuntu-Box) — dauert einige Minuten …"
+        distrobox assemble create --file "${BOXES}" 2>&1 | while read -r line; do
+            echo "${line}" >> "${LOG}"
+            case "${line}" in
+                *"Creating dev"*)
+                    echo 88
+                    echo "# Entwicklungs-Box wird eingerichtet (Compiler, Python) …" ;;
+            esac
+        done
+    fi
+    echo 100
+    echo "# Fertig"
+}
+
+progress | zenity --progress --title="${TITLE}" --width=520 \
+    --text="Ersteinrichtung startet …" --percentage=0 --auto-close --no-cancel
+
+# --- 3. Ergebnis --------------------------------------------------------------
+n=$(installed_count)
+ok=1
+msg="Programme: ${n} von ${TOTAL} installiert."
+if (( n < TOTAL )); then
+    ok=0
+    msg+="\nFehlende werden automatisch nachgeholt (alle 5 Minuten)."
+fi
+if box_exists claude; then
+    msg+="\nClaude Desktop: eingerichtet — im Startmenü unter „Claude (on claude)“."
+else
+    ok=0
+    msg+="\nClaude Desktop: nicht eingerichtet — Protokoll: ${LOG}"
+fi
+if box_exists dev; then
+    msg+="\nEntwicklungs-Box: eingerichtet — im Startmenü unter „Dev“."
+else
+    ok=0
+fi
+
+if (( ok )); then
+    touch "${DONE}"
+    zenity --info --title="${TITLE}" --width=480 \
+        --text="Alles eingerichtet.\n\n${msg}"
+else
+    zenity --warning --title="${TITLE}" --width=480 \
+        --text="Noch nicht alles fertig.\n\n${msg}\n\nBeim nächsten Anmelden geht es weiter."
+fi

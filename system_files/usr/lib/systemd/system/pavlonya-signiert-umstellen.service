@@ -1,0 +1,14 @@
+[Unit]
+Description=Pavlonya OS: Updates einmalig auf das signierte Image umstellen
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=!/var/lib/pavlonya-os/signiert
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/pavlonya-signiert-umstellen
+Restart=on-failure
+RestartSec=10min
+
+[Install]
+WantedBy=multi-user.target

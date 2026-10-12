@@ -1,0 +1,22 @@
+#!/usr/bin/bash
+# Einmalig nach der Installation: Updates auf das signierte Image umstellen.
+# Ersetzt den Handgriff „sudo bootc switch --enforce-container-sigpolicy …“.
+# Wirkt ab dem nächsten Neustart; danach prüft jedes Update die cosign-Signatur.
+set -euo pipefail
+
+MARK=/var/lib/pavlonya-os/signiert
+REF="$(cat /usr/share/pavlonya-os/image-ref)"
+
+if [[ "${REF}" == *CHANGEME* ]]; then
+    echo "Lokaler Testbau ohne echten Image-Namen — nichts zu tun."
+    exit 0
+fi
+
+mkdir -p "$(dirname "${MARK}")"
+if bootc status --format=json | grep -Eq '"signature"[[:space:]]*:[[:space:]]*"containerPolicy"'; then
+    echo "Signaturprüfung ist bereits aktiv."
+else
+    echo "Stelle um auf ${REF} mit Signaturprüfung."
+    bootc switch --enforce-container-sigpolicy "${REF}"
+fi
+touch "${MARK}"

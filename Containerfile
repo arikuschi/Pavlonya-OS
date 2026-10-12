@@ -29,7 +29,7 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/10-repos.sh
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/20-kernel-nvidia.sh
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/30-packages.sh
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/40-extras.sh
-RUN IMAGE_REF="${IMAGE_REF}" /build_files/50-system.sh
+RUN IMAGE_REF="${IMAGE_REF}" FEDORA_VERSION="${FEDORA_VERSION}" /build_files/50-system.sh
 RUN /build_files/60-initramfs.sh
 RUN FEDORA_VERSION="${FEDORA_VERSION}" /build_files/90-cleanup.sh
 

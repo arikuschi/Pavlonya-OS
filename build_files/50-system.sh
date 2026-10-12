@@ -4,6 +4,9 @@ set -euxo pipefail
 
 cp -a /system_files/. /
 
+# Image-Name für die einmalige Umstellung auf das signierte Image
+echo "${IMAGE_REF}:${FEDORA_VERSION}" > /usr/share/pavlonya-os/image-ref
+
 # --- Signaturprüfung für eigene Updates --------------------------------------
 # Ohne öffentlichen Schlüssel bleibt die Prüfung aus (lokaler Testbau).
 if [[ -s /keys/cosign.pub ]]; then
@@ -26,7 +29,8 @@ systemctl enable \
     fstrim.timer \
     pavlonya-update.timer \
     pavlonya-flatpaks.service \
-    pavlonya-ensure-user.service
+    pavlonya-ensure-user.service \
+    pavlonya-signiert-umstellen.service
 
 # Für jeden Benutzer: Distroboxen täglich aktualisieren (läuft nach der Anmeldung)
 systemctl --global enable pavlonya-distrobox-upgrade.timer

@@ -18,8 +18,37 @@ LIST=/usr/share/pavlonya-os/flatpaks.txt
 BOXES=/usr/share/pavlonya-os/distrobox.ini
 TITLE="Pavlonya OS – Ersteinrichtung"
 
-[[ -e "${DONE}" ]] && exit 0
 mkdir -p "${STATE}"
+
+box_exists() {
+    podman container exists "$1" 2> /dev/null
+}
+
+chatgpt_exported() {
+    [[ -e "${HOME}/.local/share/applications/claude-chatgpt.desktop" ]]
+}
+
+# --- bei jeder Anmeldung: schnell, überschreibt nichts -------------------------
+# Flatpak-Quellen auch für den Benutzer: der COSMIC Store zeigt sonst „Bitte
+# aktiviere Flathub und COSMIC Flatpak“ (Laptop 12.10.2026).
+flatpak remote-add --user --if-not-exists flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo > /dev/null 2>&1 || true
+flatpak remote-add --user --if-not-exists cosmic \
+    https://apt.pop-os.org/cosmic/cosmic.flatpakrepo > /dev/null 2>&1 || true
+
+# Minimon wie unter Pop!_OS — nur wenn der Benutzer noch keine eigene Einstellung hat
+MINIMON="${XDG_CONFIG_HOME:-$HOME/.config}/cosmic/io.github.cosmic_utils.minimon-applet-panel/v1"
+if [[ ! -d "${MINIMON}" ]]; then
+    mkdir -p "${MINIMON}"
+    cp /usr/share/pavlonya-os/minimon/* "${MINIMON}/"
+fi
+
+# Später ins Image gekommene Box-Programme (ChatGPT, 12.10.2026) nachholen
+if box_exists claude && ! chatgpt_exported; then
+    rm -f "${DONE}"
+fi
+
+[[ -e "${DONE}" ]] && exit 0
 
 # App-IDs aus der Liste (Zeile = „<id>“ oder „<quelle> <id>“)
 mapfile -t APPS < <(sed -E 's/#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//; /^$/d' "${LIST}" | awk '{print $NF}')
@@ -38,10 +67,6 @@ first_missing() {
     for a in "${APPS[@]}"; do
         flatpak info --system "${a}" > /dev/null 2>&1 || { echo "${a##*.}"; return; }
     done
-}
-
-box_exists() {
-    podman container exists "$1" 2> /dev/null
 }
 
 progress() {
@@ -69,11 +94,11 @@ progress() {
 
     # --- 2. Distroboxen -------------------------------------------------------
     if box_exists claude && box_exists dev; then
-        echo 95
+        echo 80
         echo "# Claude Desktop und Entwicklungs-Box sind schon eingerichtet"
     else
         echo 72
-        echo "# Claude Desktop wird eingerichtet (Ubuntu-Box) — dauert einige Minuten …"
+        echo "# Claude Desktop und ChatGPT werden eingerichtet (Ubuntu-Box) — dauert einige Minuten …"
         distrobox assemble create --file "${BOXES}" 2>&1 | while read -r line; do
             echo "${line}" >> "${LOG}"
             case "${line}" in
@@ -82,6 +107,17 @@ progress() {
                     echo "# Entwicklungs-Box wird eingerichtet (Compiler, Python) …" ;;
             esac
         done
+    fi
+
+    # ChatGPT in einer schon vorhandenen Box nachinstallieren
+    if box_exists claude && ! chatgpt_exported; then
+        echo 92
+        echo "# ChatGPT wird in der Ubuntu-Box nachinstalliert …"
+        hook="$(sed -nE 's/^init_hooks="(command -v chatgpt.*)"$/\1/p' "${BOXES}")"
+        {
+            distrobox enter claude -- sudo -n sh -c "${hook}"
+            distrobox enter claude -- distrobox-export --app chatgpt
+        } >> "${LOG}" 2>&1
     fi
     echo 100
     echo "# Fertig"
@@ -103,6 +139,12 @@ if box_exists claude; then
 else
     ok=0
     msg+="\nClaude Desktop: nicht eingerichtet — Protokoll: ${LOG}"
+fi
+if chatgpt_exported; then
+    msg+="\nChatGPT: eingerichtet — im Startmenü unter „ChatGPT (on claude)“."
+else
+    ok=0
+    msg+="\nChatGPT: nicht eingerichtet — Protokoll: ${LOG}"
 fi
 if box_exists dev; then
     msg+="\nEntwicklungs-Box: eingerichtet — im Startmenü unter „Dev“."

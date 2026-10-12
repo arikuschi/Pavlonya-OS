@@ -18,3 +18,8 @@ fuse-sshfs                  #                      (Pop: sshfs)
 wireguard-tools
 openssh-clients
 openssh-server              # Laptop soll per SSH erreichbar sein (10.10.2026)
+
+# Festplatten-Programme (12.10.2026)
+gnome-disk-utility          # Laufwerke: formatieren, SMART, ISO auf USB-Stick schreiben
+gparted                     # Partitionen verschieben und vergrößern
+xhost                       # GParted läuft als root über Xwayland und braucht die Freigabe

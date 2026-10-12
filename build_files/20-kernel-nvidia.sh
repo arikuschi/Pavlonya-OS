@@ -44,6 +44,17 @@ done
 # shellcheck disable=SC1091
 source "${SRC}/rpms/kmods/nvidia-vars"   # KERNEL_VERSION, NVIDIA_AKMOD_VERSION, DIST_ARCH
 
+# Reste des Basis-Kernels entfernen: initramfs und vmlinuz unter
+# /usr/lib/modules/<version> gehören keinem Paket und bleiben nach dem
+# dnf remove liegen, wenn das Basis-Image einen anderen Kernel hat als der
+# akmods-Cache (12.10.2026: Basis 7.2.9-201, Cache 7.2.9-200).
+for dir in /usr/lib/modules/*; do
+    if [[ "$(basename "${dir}")" != "${KERNEL_VERSION}" ]]; then
+        echo "### Entferne Rest des Basis-Kernels: ${dir}"
+        rm -rf "${dir}"
+    fi
+done
+
 dnf -y install "${SRC}"/rpms/ublue-os/ublue-os-nvidia-addons-*.rpm
 # negativo17-Quelle (aus dem Addon) nur für diesen Aufruf, für die 32-Bit-Bibliotheken
 dnf -y install --enablerepo='fedora-nvidia*' \

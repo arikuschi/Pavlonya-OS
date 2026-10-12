@@ -31,6 +31,7 @@ xorg-x11-server-Xwayland
 qt5-qtwayland
 qt6-qtwayland
 wl-clipboard
+zenity                      # Fortschrittsfenster der Ersteinrichtung
 
 default-fonts
 google-noto-color-emoji-fonts

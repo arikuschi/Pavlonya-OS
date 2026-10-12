@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Pavlonya OS – Ersteinrichtung
+Comment=Programme und Claude Desktop einrichten, mit Fortschrittsanzeige
+Exec=/usr/libexec/pavlonya-ersteinrichtung
+Icon=system-software-install
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

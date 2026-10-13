@@ -28,6 +28,10 @@ chatgpt_exported() {
     [[ -e "${HOME}/.local/share/applications/claude-chatgpt.desktop" ]]
 }
 
+claude_code_da() {
+    [[ -x "${HOME}/.local/bin/claude" ]]
+}
+
 # --- bei jeder Anmeldung: schnell, überschreibt nichts -------------------------
 # Flatpak-Quellen auch für den Benutzer: der COSMIC Store zeigt sonst „Bitte
 # aktiviere Flathub und COSMIC Flatpak“ (Laptop 12.10.2026).
@@ -59,6 +63,10 @@ fi
 
 # Später ins Image gekommene Box-Programme (ChatGPT, 12.10.2026) nachholen
 if box_exists claude && ! chatgpt_exported; then
+    rm -f "${DONE}"
+fi
+# Claude Code im Terminal (13.10.2026)
+if ! claude_code_da; then
     rm -f "${DONE}"
 fi
 
@@ -133,6 +141,15 @@ progress() {
             distrobox enter claude -- distrobox-export --app chatgpt
         } >> "${LOG}" 2>&1
     fi
+
+    # --- 3. Claude Code (Terminal) --------------------------------------------
+    # Offizieller Installer von Anthropic, installiert nach ~/.local/bin und
+    # aktualisiert sich danach selbst — wie unter Pop!_OS.
+    if ! claude_code_da; then
+        echo 96
+        echo "# Claude Code (Terminal) wird installiert …"
+        curl -fsSL https://claude.ai/install.sh | bash >> "${LOG}" 2>&1
+    fi
     echo 100
     echo "# Fertig"
 }
@@ -159,6 +176,12 @@ if chatgpt_exported; then
 else
     ok=0
     msg+="\nChatGPT: nicht eingerichtet — Protokoll: ${LOG}"
+fi
+if claude_code_da; then
+    msg+="\nClaude Code: eingerichtet — im Terminal mit „claude“ starten."
+else
+    ok=0
+    msg+="\nClaude Code: nicht eingerichtet — Protokoll: ${LOG}"
 fi
 if box_exists dev; then
     msg+="\nEntwicklungs-Box: eingerichtet — im Startmenü unter „Dev“."

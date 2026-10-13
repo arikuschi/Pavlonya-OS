@@ -1,0 +1,103 @@
+#!/usr/bin/bash
+# Pop!_OS — nächtliches Backup mit restic auf die TrueNAS.
+#
+# Läuft als root-Dienst (popos-backup.timer, 0:00). restic selbst läuft als
+# Benutzer mit dem Zusatzrecht CAP_DAC_READ_SEARCH: so liest es auch
+# root-geschützte Dateien (VPN, Storage-Box-Schlüssel) und schreibt als Besitzer
+# ins Repo — root hätte auf der NFS-Freigabe je nach TrueNAS-Einstellung keinen
+# Zugriff.
+#
+# Vor jeder Sicherung entsteht die Programmliste (inventar/): nur Pakete, die nach
+# der Installation von Pop!_OS ausdrücklich installiert wurden und noch da sind,
+# dazu die Flatpaks des Benutzers.
+set -uo pipefail
+
+CONF=/etc/popos-backup/backup.conf
+STATUS=/var/lib/popos-backup/status
+INV=/var/lib/popos-backup/inventar
+
+status() {  # status <ok|fehler> <text>
+    mkdir -p "$(dirname "${STATUS}")"
+    printf 'ERGEBNIS=%s\nZEIT=%s\nTEXT=%q\n' "$1" "$(date +%s)" "$2" > "${STATUS}"
+    chmod 644 "${STATUS}"
+    echo "$2"
+}
+
+# shellcheck disable=SC1090
+source "${CONF}" || { status fehler "Einstellungen ${CONF} fehlen"; exit 1; }
+HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
+GID="$(id -g "${BENUTZER}")"
+
+als_benutzer() {  # restic als Benutzer, mit Leserecht auf alle Dateien
+    setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
+        --inh-caps=+dac_read_search --ambient-caps=+dac_read_search \
+        env HOME="${HOMEDIR}" RESTIC_CACHE_DIR="${HOMEDIR}/.cache/restic" \
+        RESTIC_REPOSITORY="${EINHAENGEPUNKT}/${REPO_UNTERORDNER}" \
+        RESTIC_PASSWORD_FILE="${PASSWORT_DATEI}" "$@"
+}
+
+# --- Programmliste ------------------------------------------------------------
+mkdir -p "${INV}"
+INSTALLIERT_SEIT="$(stat -c %W /)"   # Anlage des Wurzel-Dateisystems = Installation
+zcat -f /var/log/apt/history.log* 2> /dev/null | python3 -c '
+import sys, re, subprocess, datetime
+seit = datetime.datetime.fromtimestamp(int(sys.argv[1])).strftime("%Y-%m-%d")
+aus = set(sys.argv[2:])
+tx, cur = [], None
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if line.startswith("Start-Date:"):
+        cur = {"date": line.split()[1]}; tx.append(cur)
+    elif cur is not None and ": " in line:
+        k, v = line.split(": ", 1); cur[k] = v
+wahl = set()
+for t in tx:
+    if t["date"] < seit:
+        continue
+    cl = t.get("Commandline", "")
+    if not (re.search(r"\b(apt|apt-get) install\b", cl) or "install-files" in cl or "install-packages" in cl):
+        continue
+    for m in re.finditer(r"([a-z0-9][a-z0-9+.\-]*):(?:amd64|all|i386) \(([^)]*)\)", t.get("Install", "")):
+        if "automatic" not in m.group(2):
+            wahl.add(m.group(1))
+out = subprocess.run(["dpkg-query", "-W", "-f=${Package} ${db:Status-Abbrev}\n"], capture_output=True, text=True).stdout
+da = {l.split()[0] for l in out.splitlines() if l.strip().endswith("ii")}
+for p in sorted((wahl & da) - aus):
+    print(p)
+' "${INSTALLIERT_SEIT}" "${PAKETE_AUSSCHLIESSEN[@]}" > "${INV}/apt-pakete.txt"
+
+runuser -u "${BENUTZER}" -- env HOME="${HOMEDIR}" \
+    flatpak list --user --app --columns=application,origin > "${INV}/flatpak-apps.txt" 2> /dev/null || true
+runuser -u "${BENUTZER}" -- env HOME="${HOMEDIR}" \
+    flatpak remotes --user --columns=name,url > "${INV}/flatpak-quellen.txt" 2> /dev/null || true
+[[ -x "${HOMEDIR}/.local/bin/claude" ]] && echo "claude-code" > "${INV}/sonstiges.txt" || : > "${INV}/sonstiges.txt"
+echo "Programmliste: $(wc -l < "${INV}/apt-pakete.txt") Pakete, $(wc -l < "${INV}/flatpak-apps.txt") Flatpaks"
+
+# --- TrueNAS ------------------------------------------------------------------
+if ! mountpoint -q "${EINHAENGEPUNKT}"; then
+    mkdir -p "${EINHAENGEPUNKT}"
+    mount "${EINHAENGEPUNKT}" 2> /dev/null || mount -t nfs "${NFS_QUELLE}" "${EINHAENGEPUNKT}" \
+        || { status fehler "TrueNAS nicht erreichbar — nicht im Heimnetz?"; exit 1; }
+fi
+
+# --- Sicherung ----------------------------------------------------------------
+PFADE=()
+for p in "${HOME_PFADE[@]}"; do [[ -e "${HOMEDIR}/${p}" ]] && PFADE+=("${HOMEDIR}/${p}"); done
+for p in "${SYSTEM_PFADE[@]}"; do [[ -e "${p}" ]] && PFADE+=("${p}"); done
+EXCL=()
+for e in "${AUSSCHLUESSE[@]}"; do EXCL+=(--exclude "${e}"); done
+
+als_benutzer restic backup --host "${HOST}" "${EXCL[@]}" "${PFADE[@]}"
+RC=$?
+if [[ ${RC} -ne 0 && ${RC} -ne 3 ]]; then
+    status fehler "restic backup fehlgeschlagen (Exit ${RC}) — journalctl -u popos-backup"
+    exit 1
+fi
+als_benutzer restic forget --host "${HOST}" --group-by host "${BEHALTEN[@]}" --prune \
+    || { status fehler "restic forget/prune fehlgeschlagen"; exit 1; }
+
+if [[ ${RC} -eq 3 ]]; then
+    status ok "Backup erstellt, einzelne Dateien übersprungen (journalctl -u popos-backup)"
+else
+    status ok "Backup erfolgreich"
+fi

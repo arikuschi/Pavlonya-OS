@@ -1,0 +1,43 @@
+# Pop!_OS — Backup mit restic. Liegt als /etc/popos-backup/backup.conf (root, 600).
+# Diese Datei steht im Repo nur als Vorlage, ohne Adresse und Kennwort.
+
+# NFS-Freigabe der TrueNAS und wo sie eingehängt wird (wie in /etc/fstab)
+NFS_QUELLE="<truenas-ip>:/mnt/pavlonya-data/backups/linux"
+EINHAENGEPUNKT="/mnt/truenas-backup"
+REPO_UNTERORDNER="restic"
+
+# Kennwort des Repositorys (eine Zeile), root, chmod 600
+PASSWORT_DATEI="/etc/popos-backup/restic-passwort"
+
+HOST="pop-os"
+BENUTZER="arikushi"
+
+# Home-Ordner (relativ zum Home), wie im bisherigen Skript
+HOME_PFADE=(
+    Dokumente Bilder Schreibtisch Videos Musik
+    .ssh .gnupg .config .var/app .bashrc .profile .thunderbird .vscode
+    private.key public.key
+    .local/share/keyrings .local/share/applications .local/share/color-schemes
+    .local/share/Cryptomator .local/share/onlyoffice .pki
+)
+
+# Systempfade: Netz/VPN (netplan), Laufwerke, Storage-Box-Schlüssel, Fremdquellen,
+# der Backup-Dienst selbst und die Programmliste
+SYSTEM_PFADE=(
+    /etc/netplan /etc/NetworkManager /etc/fstab /etc/hosts /root/.ssh
+    /etc/apt/sources.list.d /etc/apt/keyrings /usr/share/keyrings
+    /etc/popos-backup /usr/local/sbin/popos-backup
+    /etc/systemd/system/popos-backup.service /etc/systemd/system/popos-backup.timer
+    /var/lib/popos-backup/inventar
+)
+
+AUSSCHLUESSE=(
+    "*/.var/app/*/cache"
+    "*/.var/app/com.valvesoftware.Steam"
+    "*/.var/app/ru.linux_gaming.PortProton"
+)
+
+# Pakete, die nicht in die Programmliste kommen (Sergej, 13.10.2026)
+PAKETE_AUSSCHLIESSEN=( grub-pc-bin grub2-common )
+
+BEHALTEN=( --keep-daily 7 --keep-weekly 4 )

@@ -20,6 +20,17 @@ status() {  # status <ok|fehler> <text>
 source "${CONF}" || { status fehler "Einstellungen ${CONF} fehlen oder sind fehlerhaft"; exit 1; }
 
 HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
+GID="$(id -g "${BENUTZER}")"
+
+# restic läuft als Benutzer (Besitzer des Repos auf der TrueNAS — root hätte dort je
+# nach NFS-Einstellung keinen Zugriff), mit dem Zusatzrecht, alle Dateien zu lesen.
+als_benutzer() {
+    setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
+        --inh-caps=+dac_read_search --ambient-caps=+dac_read_search \
+        env HOME="${HOMEDIR}" RESTIC_CACHE_DIR="${HOMEDIR}/.cache/restic" \
+        RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}" \
+        RESTIC_PASSWORD_FILE="${PASSWORT_DATEI}" "$@"
+}
 PFADE=()
 for p in "${HOME_PFADE[@]}"; do
     [[ -e "${HOMEDIR}/${p}" ]] && PFADE+=("${HOMEDIR}/${p}")
@@ -42,10 +53,7 @@ if ! mountpoint -q "${MNT}"; then
 fi
 trap '[[ ${EINGEHAENGT} == 1 ]] && umount "${MNT}"' EXIT
 
-export RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}"
-export RESTIC_PASSWORD_FILE="${PASSWORT_DATEI}"
-
-restic backup --host "${HOST}" "${EXCL[@]}" "${PFADE[@]}"
+als_benutzer restic backup --host "${HOST}" "${EXCL[@]}" "${PFADE[@]}"
 RC=$?
 # Exit 3: Sicherung erstellt, aber einzelne Dateien waren nicht lesbar
 if [[ ${RC} -ne 0 && ${RC} -ne 3 ]]; then
@@ -53,7 +61,7 @@ if [[ ${RC} -ne 0 && ${RC} -ne 3 ]]; then
     exit 1
 fi
 
-restic forget --host "${HOST}" "${BEHALTEN[@]}" --prune \
+als_benutzer restic forget --host "${HOST}" "${BEHALTEN[@]}" --prune \
     || { status fehler "restic forget/prune fehlgeschlagen — journalctl -u pavlonya-backup"; exit 1; }
 
 if [[ ${RC} -eq 3 ]]; then

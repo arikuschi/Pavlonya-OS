@@ -83,7 +83,7 @@ fi
 echo "Hole aus der letzten Sicherung von „${HOST}“ …"
 
 # Home liegt unter Pop!_OS in /home, unter Pavlonya OS in /var/home
-INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" )
+INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" --include /run/NetworkManager/system-connections )
 for h in "/home/${BENUTZER}" "/var/home/${BENUTZER}"; do
     INCL+=( --include "${h}/.ssh" )
 done
@@ -104,6 +104,25 @@ if [[ -d "${ARBEIT}/r${NM_DIR}" ]]; then
             n=$((n + 1))
         fi
     done
+    true
+fi
+# Aus einer Pop!_OS-Sicherung: von netplan erzeugte Dateien — nur VPN und WLAN,
+# Dateiname nach dem Verbindungsnamen (id=)
+if [[ -d "${ARBEIT}/r/run/NetworkManager/system-connections" ]]; then
+    for f in "${ARBEIT}/r/run/NetworkManager/system-connections"/*.nmconnection; do
+        [[ -e "${f}" ]] || continue
+        typ="$(sed -n 's/^type=//p' "${f}" | head -1)"
+        [[ "${typ}" =~ ^(wireguard|vpn|wifi|802-11-wireless)$ ]] || continue
+        name="$(sed -n 's/^id=//p' "${f}" | head -1)"
+        name="${name//[^A-Za-z0-9._-]/_}"
+        ziel="${NM_DIR}/${name:-$(basename "${f}" .nmconnection)}.nmconnection"
+        if [[ ! -e "${ziel}" ]]; then
+            install -m600 -o root -g root "${f}" "${ziel}"
+            n=$((n + 1))
+        fi
+    done
+fi
+if (( n > 0 )); then
     command -v restorecon > /dev/null && restorecon -R "${NM_DIR}"
     command -v nmcli > /dev/null && nmcli connection reload
 fi

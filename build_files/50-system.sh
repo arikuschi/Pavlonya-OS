@@ -30,7 +30,8 @@ systemctl enable \
     pavlonya-update.timer \
     pavlonya-flatpaks.service \
     pavlonya-ensure-user.service \
-    pavlonya-signiert-umstellen.service
+    pavlonya-signiert-umstellen.service \
+    pavlonya-backup.timer
 
 # Für jeden Benutzer: Distroboxen täglich aktualisieren (läuft nach der Anmeldung)
 systemctl --global enable pavlonya-distrobox-upgrade.timer

@@ -1,0 +1,36 @@
+# Pavlonya OS — Backup mit restic. Kopie nach /etc/pavlonya-os/backup.conf
+# (root, chmod 600). Diese Datei steht NICHT im Repo und nicht im Image.
+
+# NFS-Freigabe der TrueNAS (Adresse aus dem Vault, Notiz „Homelab Pavlonya")
+NFS_QUELLE="<truenas-ip>:/mnt/pavlonya-data/backups/linux"
+
+# restic-Repository relativ zur eingehängten Freigabe (dasselbe wie unter Pop!_OS)
+REPO_UNTERORDNER="restic"
+
+# Kennwort des Repositorys (eine Zeile), root-only: chmod 600
+PASSWORT_DATEI="/etc/pavlonya-os/restic-passwort"
+
+# Rechnername in den Sicherungen — trennt sie von denen aus Pop!_OS
+HOST="pavlonya-os"
+
+# Benutzer, dessen Home gesichert wird
+BENUTZER="arikushi"
+
+# Was gesichert wird (relativ zum Home des Benutzers), wie unter Pop!_OS
+HOME_PFADE=(
+    Dokumente Bilder Schreibtisch Videos Musik
+    .ssh .gnupg .config .var/app .bashrc .profile .thunderbird .vscode
+    .local/share/keyrings .local/share/applications .local/share/Cryptomator
+    .local/share/onlyoffice .pki
+)
+# Systempfade
+SYSTEM_PFADE=( /etc/fstab /etc/hosts /etc/NetworkManager /etc/pavlonya-os )
+
+AUSSCHLUESSE=(
+    "*/.var/app/*/cache"
+    "*/.var/app/com.valvesoftware.Steam"
+    "*/.var/app/ru.linux_gaming.PortProton"
+)
+
+# Aufbewahrung (nur Sicherungen dieses Rechners)
+BEHALTEN=( --keep-daily 7 --keep-weekly 4 )

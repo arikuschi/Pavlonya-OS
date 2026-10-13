@@ -1,0 +1,63 @@
+#!/usr/bin/bash
+# Tägliches Backup mit restic auf die TrueNAS (per NFS).
+# Einstellungen und Kennwort: /etc/pavlonya-os/backup.conf (nicht im Image).
+# Ergebnis: /var/lib/pavlonya-os/backup-status — die Anmeldung warnt, wenn das
+# letzte Backup fehlgeschlagen oder älter als 3 Tage ist.
+set -uo pipefail
+
+CONF=/etc/pavlonya-os/backup.conf
+STATUS=/var/lib/pavlonya-os/backup-status
+MNT=/var/mnt/pavlonya-backup
+
+status() {  # status <ok|fehler> <text>
+    mkdir -p "$(dirname "${STATUS}")"
+    printf 'ERGEBNIS=%s\nZEIT=%s\nTEXT=%q\n' "$1" "$(date +%s)" "$2" > "${STATUS}"
+    chmod 644 "${STATUS}"
+    echo "$2"
+}
+
+# shellcheck disable=SC1090
+source "${CONF}" || { status fehler "Einstellungen ${CONF} fehlen oder sind fehlerhaft"; exit 1; }
+
+HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
+PFADE=()
+for p in "${HOME_PFADE[@]}"; do
+    [[ -e "${HOMEDIR}/${p}" ]] && PFADE+=("${HOMEDIR}/${p}")
+done
+for p in "${SYSTEM_PFADE[@]}"; do
+    [[ -e "${p}" ]] && PFADE+=("${p}")
+done
+EXCL=()
+for e in "${AUSSCHLUESSE[@]}"; do EXCL+=(--exclude "${e}"); done
+
+# NFS selbst einhängen, damit die Adresse nur in der lokalen Einstellung steht
+mkdir -p "${MNT}"
+EINGEHAENGT=0
+if ! mountpoint -q "${MNT}"; then
+    if ! mount -t nfs -o soft,timeo=150,retrans=3 "${NFS_QUELLE}" "${MNT}"; then
+        status fehler "TrueNAS nicht erreichbar (${NFS_QUELLE}) — nicht im Heimnetz?"
+        exit 1
+    fi
+    EINGEHAENGT=1
+fi
+trap '[[ ${EINGEHAENGT} == 1 ]] && umount "${MNT}"' EXIT
+
+export RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}"
+export RESTIC_PASSWORD_FILE="${PASSWORT_DATEI}"
+
+restic backup --host "${HOST}" "${EXCL[@]}" "${PFADE[@]}"
+RC=$?
+# Exit 3: Sicherung erstellt, aber einzelne Dateien waren nicht lesbar
+if [[ ${RC} -ne 0 && ${RC} -ne 3 ]]; then
+    status fehler "restic backup fehlgeschlagen (Exit ${RC}) — journalctl -u pavlonya-backup"
+    exit 1
+fi
+
+restic forget --host "${HOST}" "${BEHALTEN[@]}" --prune \
+    || { status fehler "restic forget/prune fehlgeschlagen — journalctl -u pavlonya-backup"; exit 1; }
+
+if [[ ${RC} -eq 3 ]]; then
+    status ok "Backup erstellt, einzelne Dateien übersprungen (siehe journalctl -u pavlonya-backup)"
+else
+    status ok "Backup erfolgreich"
+fi

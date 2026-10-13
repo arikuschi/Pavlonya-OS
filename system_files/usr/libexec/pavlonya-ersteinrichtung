@@ -43,6 +43,20 @@ if [[ ! -d "${MINIMON}" ]]; then
     cp /usr/share/pavlonya-os/minimon/* "${MINIMON}/"
 fi
 
+# Backup-Hinweis: warnen, wenn eingerichtet, aber fehlgeschlagen oder zu alt
+if [[ -r /var/lib/pavlonya-os/backup-status ]]; then
+    # shellcheck disable=SC1091
+    source /var/lib/pavlonya-os/backup-status
+    alter=$(( ( $(date +%s) - ${ZEIT:-0} ) / 86400 ))
+    if [[ "${ERGEBNIS:-}" != ok ]]; then
+        zenity --warning --title="Pavlonya OS – Backup" --width=460 \
+            --text="Das letzte Backup ist fehlgeschlagen:\n\n${TEXT:-unbekannt}" &
+    elif (( alter >= 3 )); then
+        zenity --warning --title="Pavlonya OS – Backup" --width=460 \
+            --text="Das letzte erfolgreiche Backup ist ${alter} Tage alt.\nIst der Laptop im Heimnetz?" &
+    fi
+fi
+
 # Später ins Image gekommene Box-Programme (ChatGPT, 12.10.2026) nachholen
 if box_exists claude && ! chatgpt_exported; then
     rm -f "${DONE}"

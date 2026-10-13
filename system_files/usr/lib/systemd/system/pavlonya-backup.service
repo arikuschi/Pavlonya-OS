@@ -1,0 +1,11 @@
+[Unit]
+Description=Pavlonya OS: Backup mit restic auf die TrueNAS
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/pavlonya-os/backup.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/pavlonya-backup
+Nice=10
+IOSchedulingClass=idle

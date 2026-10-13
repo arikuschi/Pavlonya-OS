@@ -1,0 +1,146 @@
+#!/usr/bin/bash
+# pavlonya-wiederherstellen — Gerätedaten nach einer Neuinstallation aus dem
+# restic-Backup auf der TrueNAS zurückholen (13.10.2026).
+#
+# Holt aus der letzten Sicherung:
+#   - VPN-Verbindungen     /etc/NetworkManager/system-connections/
+#   - Backup-Einstellungen /etc/pavlonya-os/ (backup.conf, restic-passwort)
+#   - SSH-Schlüssel        ~/.ssh
+# Vorhandene Dateien werden NICHT überschrieben.
+#
+# Aufruf:  sudo pavlonya-wiederherstellen [--host pavlonya-os|pop-os]
+# Fragt nach der TrueNAS-Adresse (Vault: „Homelab Pavlonya") und dem
+# restic-Kennwort (Bitwarden).
+set -uo pipefail
+
+NFS_PFAD="/mnt/pavlonya-data/backups/linux"
+REPO_UNTERORDNER="restic"
+MNT=/var/mnt/pavlonya-wiederherstellen
+CONF_DIR=/etc/pavlonya-os
+NM_DIR=/etc/NetworkManager/system-connections
+WUNSCH_HOST=""
+
+[[ "${1:-}" == "--host" ]] && WUNSCH_HOST="${2:-}"
+
+if [[ ${EUID} -ne 0 ]]; then
+    echo "Bitte mit sudo starten:  sudo pavlonya-wiederherstellen"
+    exit 1
+fi
+
+BENUTZER="${SUDO_USER:-}"
+if [[ -z "${BENUTZER}" || "${BENUTZER}" == root ]]; then
+    read -rp "Für welchen Benutzer (z. B. arikushi)? " BENUTZER
+fi
+HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
+[[ -n "${HOMEDIR}" ]] || { echo "Benutzer ${BENUTZER} gibt es nicht."; exit 1; }
+
+echo "=== Pavlonya OS — Gerätedaten wiederherstellen (Benutzer ${BENUTZER}) ==="
+read -rp "TrueNAS-Adresse (IP, steht im Vault unter „Homelab Pavlonya“): " NAS
+read -rsp "restic-Kennwort (Bitwarden): " PASSWORT; echo
+
+ARBEIT="$(mktemp -d /run/pavlonya-wiederherstellen.XXXX)"
+chmod 700 "${ARBEIT}"
+printf '%s\n' "${PASSWORT}" > "${ARBEIT}/pw"
+EINGEHAENGT=0
+aufraeumen() {
+    [[ ${EINGEHAENGT} == 1 ]] && umount "${MNT}"
+    rm -rf "${ARBEIT}"
+}
+trap aufraeumen EXIT
+
+mkdir -p "${MNT}"
+if ! mountpoint -q "${MNT}"; then
+    mount -t nfs -o ro,soft,timeo=150,retrans=3 "${NAS}:${NFS_PFAD}" "${MNT}" \
+        || { echo "TrueNAS ${NAS} nicht erreichbar — im Heimnetz?"; exit 1; }
+    EINGEHAENGT=1
+fi
+export RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}"
+export RESTIC_PASSWORD_FILE="${ARBEIT}/pw"
+
+# Welche Sicherung? Bevorzugt die eigene, sonst die von Pop!_OS.
+hat_snapshot() { restic snapshots --host "$1" --latest 1 --json 2> /dev/null | grep -q '"id"'; }
+if ! restic cat config > /dev/null 2>&1; then
+    echo "Repository nicht lesbar — Kennwort falsch?"
+    exit 1
+fi
+if [[ -n "${WUNSCH_HOST}" ]]; then
+    HOST="${WUNSCH_HOST}"
+elif hat_snapshot pavlonya-os; then
+    HOST=pavlonya-os
+elif hat_snapshot pop-os; then
+    HOST=pop-os
+else
+    echo "Keine Sicherung von pavlonya-os oder pop-os gefunden."
+    exit 1
+fi
+echo "Hole aus der letzten Sicherung von „${HOST}“ …"
+
+# Home liegt unter Pop!_OS in /home, unter Pavlonya OS in /var/home
+INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" )
+for h in "/home/${BENUTZER}" "/var/home/${BENUTZER}"; do
+    INCL+=( --include "${h}/.ssh" )
+done
+restic restore latest --host "${HOST}" --target "${ARBEIT}/r" "${INCL[@]}" \
+    > "${ARBEIT}/restore.log" 2>&1 \
+    || { echo "Wiederherstellen fehlgeschlagen:"; tail -5 "${ARBEIT}/restore.log"; exit 1; }
+
+ERGEBNIS=()
+
+# --- VPN-Verbindungen ---------------------------------------------------------
+n=0
+if [[ -d "${ARBEIT}/r${NM_DIR}" ]]; then
+    for f in "${ARBEIT}/r${NM_DIR}"/*.nmconnection; do
+        [[ -e "${f}" ]] || continue
+        ziel="${NM_DIR}/$(basename "${f}")"
+        if [[ ! -e "${ziel}" ]]; then
+            install -m600 -o root -g root "${f}" "${ziel}"
+            n=$((n + 1))
+        fi
+    done
+    command -v restorecon > /dev/null && restorecon -R "${NM_DIR}"
+    command -v nmcli > /dev/null && nmcli connection reload
+fi
+ERGEBNIS+=("VPN-/Netzwerkverbindungen: ${n} übernommen")
+
+# --- Backup-Einstellungen -----------------------------------------------------
+mkdir -p "${CONF_DIR}"
+if [[ -e "${CONF_DIR}/backup.conf" ]]; then
+    ERGEBNIS+=("Backup-Einstellungen: schon vorhanden, unverändert")
+elif [[ -e "${ARBEIT}/r${CONF_DIR}/backup.conf" ]]; then
+    install -m600 "${ARBEIT}/r${CONF_DIR}/backup.conf" "${CONF_DIR}/backup.conf"
+    ERGEBNIS+=("Backup-Einstellungen: aus der Sicherung übernommen")
+else
+    install -m600 /usr/share/pavlonya-os/backup.conf.example "${CONF_DIR}/backup.conf"
+    sed -i "s|<truenas-ip>|${NAS}|; s|^BENUTZER=.*|BENUTZER=\"${BENUTZER}\"|" "${CONF_DIR}/backup.conf"
+    ERGEBNIS+=("Backup-Einstellungen: neu aus der Vorlage (TrueNAS ${NAS})")
+fi
+if [[ ! -e "${CONF_DIR}/restic-passwort" ]]; then
+    install -m600 "${ARBEIT}/pw" "${CONF_DIR}/restic-passwort"
+fi
+command -v restorecon > /dev/null && restorecon -R "${CONF_DIR}"
+
+# --- SSH-Schlüssel ------------------------------------------------------------
+n=0
+for h in "/var/home/${BENUTZER}" "/home/${BENUTZER}"; do
+    quelle="${ARBEIT}/r${h}/.ssh"
+    [[ -d "${quelle}" ]] || continue
+    install -d -m700 -o "${BENUTZER}" -g "${BENUTZER}" "${HOMEDIR}/.ssh"
+    for f in "${quelle}"/*; do
+        [[ -e "${f}" ]] || continue
+        ziel="${HOMEDIR}/.ssh/$(basename "${f}")"
+        if [[ ! -e "${ziel}" ]]; then
+            cp -a "${f}" "${ziel}"
+            chown "${BENUTZER}:${BENUTZER}" "${ziel}"
+            n=$((n + 1))
+        fi
+    done
+    break
+done
+command -v restorecon > /dev/null && [[ -d "${HOMEDIR}/.ssh" ]] && restorecon -R "${HOMEDIR}/.ssh"
+ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
+
+echo
+echo "=== Ergebnis (Quelle: ${HOST}) ==="
+printf ' - %s\n' "${ERGEBNIS[@]}"
+echo
+echo "Backup jetzt einmal testen:  sudo systemctl start pavlonya-backup && cat /var/lib/pavlonya-os/backup-status"

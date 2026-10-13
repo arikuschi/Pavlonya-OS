@@ -53,6 +53,15 @@ Normal: Push nach GitHub → der Workflow baut, lädt nach
    im Image. Soll Secure Boot an, vorher den öffentlichen Schlüssel aus ublue-os/akmods
    holen und mit `mokutil --import` registrieren.
 
+## Backup und Neuinstallation
+
+- `pavlonya-backup.timer` sichert täglich 0:00 mit restic auf die TrueNAS.
+  Einstellungen nur lokal: `/etc/pavlonya-os/backup.conf` (Vorlage
+  `/usr/share/pavlonya-os/backup.conf.example`) und `restic-passwort`.
+- Nach einer Neuinstallation: `sudo pavlonya-wiederherstellen` — fragt nach
+  TrueNAS-Adresse und restic-Kennwort und holt VPN-Verbindungen,
+  Backup-Einstellungen und SSH-Schlüssel aus der letzten Sicherung zurück.
+
 ## Updates
 
 `pavlonya-update.timer` lädt täglich das neue Image; aktiv wird es beim nächsten

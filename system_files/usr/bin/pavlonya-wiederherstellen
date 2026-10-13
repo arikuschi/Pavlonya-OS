@@ -38,9 +38,10 @@ echo "=== Pavlonya OS — Gerätedaten wiederherstellen (Benutzer ${BENUTZER}) =
 read -rp "TrueNAS-Adresse (IP, steht im Vault unter „Homelab Pavlonya“): " NAS
 read -rsp "restic-Kennwort (Bitwarden): " PASSWORT; echo
 
-ARBEIT="$(mktemp -d /run/pavlonya-wiederherstellen.XXXX)"
-chmod 700 "${ARBEIT}"
-printf '%s\n' "${PASSWORT}" > "${ARBEIT}/pw"
+GID="$(id -g "${BENUTZER}")"
+ARBEIT="$(mktemp -d /var/tmp/pavlonya-wiederherstellen.XXXX)"
+chown "${BENUTZER}:${GID}" "${ARBEIT}"; chmod 700 "${ARBEIT}"
+printf '%s\n' "${PASSWORT}" > "${ARBEIT}/pw"; chown "${BENUTZER}" "${ARBEIT}/pw"; chmod 600 "${ARBEIT}/pw"
 EINGEHAENGT=0
 aufraeumen() {
     [[ ${EINGEHAENGT} == 1 ]] && umount "${MNT}"
@@ -54,8 +55,14 @@ if ! mountpoint -q "${MNT}"; then
         || { echo "TrueNAS ${NAS} nicht erreichbar — im Heimnetz?"; exit 1; }
     EINGEHAENGT=1
 fi
-export RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}"
-export RESTIC_PASSWORD_FILE="${ARBEIT}/pw"
+# restic als Repo-Besitzer (root hätte auf der NFS-Freigabe evtl. keinen Zugriff);
+# die Dateien landen im Arbeitsordner und werden dann von root an ihren Platz gelegt
+restic() {
+    setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
+        env HOME="${HOMEDIR}" RESTIC_CACHE_DIR="${HOMEDIR}/.cache/restic" \
+        RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}" RESTIC_PASSWORD_FILE="${ARBEIT}/pw" \
+        /usr/bin/restic "$@"
+}
 
 # Welche Sicherung? Bevorzugt die eigene, sonst die von Pop!_OS.
 hat_snapshot() { restic snapshots --host "$1" --latest 1 --json 2> /dev/null | grep -q '"id"'; }

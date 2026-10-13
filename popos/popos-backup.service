@@ -1,0 +1,11 @@
+[Unit]
+Description=Pop!_OS: Backup mit restic auf die TrueNAS
+Wants=network-online.target
+After=network-online.target remote-fs.target
+ConditionPathExists=/etc/popos-backup/backup.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/popos-backup
+Nice=10
+IOSchedulingClass=idle

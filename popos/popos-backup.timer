@@ -1,0 +1,10 @@
+[Unit]
+Description=Pop!_OS: tägliches Backup
+
+[Timer]
+OnCalendar=*-*-* 00:00:00
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

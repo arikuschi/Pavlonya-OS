@@ -58,6 +58,7 @@ jobs:
             grep -q "${0}" /etc/containers/policy.json
             ssh-keygen -A >/dev/null && sshd -T | grep -qi "^permitrootlogin no"
             test -x /usr/libexec/pavlonya-ersteinrichtung && rpm -q zenity gnome-disk-utility gparted
+            test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup
             grep -q "^ghcr.io/" /usr/share/pavlonya-os/image-ref
           ' "${IMAGE_REF}"
 

@@ -47,6 +47,23 @@ if [[ ! -d "${MINIMON}" ]]; then
     cp /usr/share/pavlonya-os/minimon/* "${MINIMON}/"
 fi
 
+# Aussehen wie Pop!_OS (Leiste, Dock, Farbschema) EINMAL aktiv übernehmen.
+# Systemvorgaben unter /usr/share/cosmic gelten nur für Werte, die der Benutzer
+# noch nicht hat — COSMIC legt aber beim ersten Anmelden eigene an (Laptop
+# 13.10.2026: Vorgabe griff nicht). Danach frei änderbar; neue Fassung = neuer Merker.
+AUSSEHEN_MERKER="${STATE}/aussehen-popos-v1"
+if [[ ! -e "${AUSSEHEN_MERKER}" ]]; then
+    for d in com.system76.CosmicPanel.Panel com.system76.CosmicPanel.Dock \
+             com.system76.CosmicTheme.Dark com.system76.CosmicTheme.Dark.Builder \
+             com.system76.CosmicTheme.Light com.system76.CosmicTheme.Light.Builder \
+             com.system76.CosmicTheme.Mode com.system76.CosmicTk com.system76.CosmicAppList; do
+        [[ -d "/usr/share/cosmic/${d}/v1" ]] || continue
+        mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/cosmic/${d}/v1"
+        cp -f "/usr/share/cosmic/${d}/v1/"* "${XDG_CONFIG_HOME:-$HOME/.config}/cosmic/${d}/v1/"
+    done
+    touch "${AUSSEHEN_MERKER}"
+fi
+
 # Backup-Hinweis: warnen, wenn eingerichtet, aber fehlgeschlagen oder zu alt
 if [[ -r /var/lib/pavlonya-os/backup-status ]]; then
     # shellcheck disable=SC1091

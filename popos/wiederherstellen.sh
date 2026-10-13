@@ -61,7 +61,12 @@ if ! mountpoint -q "${MNT}"; then
         || { echo "TrueNAS ${NAS} nicht erreichbar — im Heimnetz?"; exit 1; }
     EINGEHAENGT=1
 fi
-als_benutzer restic cat config > /dev/null 2>&1 || { echo "Repository nicht lesbar — Kennwort falsch?"; exit 1; }
+if ! als_benutzer restic cat config > "${ARBEIT}/check.log" 2>&1; then
+    echo "Repository nicht lesbar. Meldung von restic:"
+    grep -v '^\s*$' "${ARBEIT}/check.log" | tail -3 | sed 's/^/   /'
+    echo "(„wrong password“ = Kennwort falsch; „permission denied“ = Zugriffsrecht auf der TrueNAS)"
+    exit 1
+fi
 SNAP="$(als_benutzer restic snapshots --host "${HOST}" --latest 1 --compact 2> /dev/null | awk '/^[0-9a-f]{8} /{print $1" vom "$2" "$3}' | tail -1)"
 [[ -n "${SNAP}" ]] || { echo "Keine Sicherung von ${HOST} gefunden."; exit 1; }
 echo "Letzte Sicherung: ${SNAP}"

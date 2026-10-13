@@ -66,8 +66,10 @@ restic() {
 
 # Welche Sicherung? Bevorzugt die eigene, sonst die von Pop!_OS.
 hat_snapshot() { restic snapshots --host "$1" --latest 1 --json 2> /dev/null | grep -q '"id"'; }
-if ! restic cat config > /dev/null 2>&1; then
-    echo "Repository nicht lesbar — Kennwort falsch?"
+if ! restic cat config > "${ARBEIT}/check.log" 2>&1; then
+    echo "Repository nicht lesbar. Meldung von restic:"
+    grep -v '^\s*$' "${ARBEIT}/check.log" | tail -3 | sed 's/^/   /'
+    echo "(„wrong password“ = Kennwort falsch; „permission denied“ = Zugriffsrecht auf der TrueNAS)"
     exit 1
 fi
 if [[ -n "${WUNSCH_HOST}" ]]; then

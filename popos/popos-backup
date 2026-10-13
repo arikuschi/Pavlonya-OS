@@ -84,6 +84,9 @@ fi
 PFADE=()
 for p in "${HOME_PFADE[@]}"; do [[ -e "${HOMEDIR}/${p}" ]] && PFADE+=("${HOMEDIR}/${p}"); done
 for p in "${SYSTEM_PFADE[@]}"; do [[ -e "${p}" ]] && PFADE+=("${p}"); done
+# Von netplan erzeugte NetworkManager-Dateien (VPN, WLAN) — damit Pavlonya OS sie
+# übernehmen kann; Pop!_OS selbst stellt aus /etc/netplan wieder her
+[[ -d /run/NetworkManager/system-connections ]] && PFADE+=(/run/NetworkManager/system-connections)
 EXCL=()
 for e in "${AUSSCHLUESSE[@]}"; do EXCL+=(--exclude "${e}"); done
 

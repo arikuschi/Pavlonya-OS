@@ -9,7 +9,8 @@
 # Vorhandene Dateien werden NICHT überschrieben.
 #
 # Danach auf Wunsch: Programm-Einstellungen aus der letzten Pop!_OS-Sicherung
-# (alle Flatpaks unter ~/.var/app, Tabby, VS Code). Diese werden ÜBERSCHRIEBEN —
+# (alle Flatpaks unter ~/.var/app, Tabby, VS Code, Schlüsselbund, Obsidian-Vaults samt
+# LiveSync). Diese werden ÜBERSCHRIEBEN —
 # die Programme müssen dafür geschlossen sein (14.10.2026).
 #
 # Aufruf:  sudo pavlonya-wiederherstellen [--host pavlonya-os|pop-os]
@@ -184,7 +185,8 @@ if [[ "${PROGRAMME,,}" != n* ]]; then
         echo "schließen (Floorp, Thunderbird, Obsidian, Tabby, Zed, VS Code …)."
         read -rp "Weiter mit Enter … " _
         ok=0; fehl=0
-        for rel in .var/app .config/tabby .config/Code .vscode; do
+        # Schlüsselbund: gleiches Anmeldekennwort auf beiden Systemen (14.10.2026)
+        for rel in .var/app .config/tabby .config/Code .vscode .local/share/keyrings; do
             if restic restore "latest:/home/${BENUTZER}/${rel}" --host pop-os \
                     --target "${HOMEDIR}/${rel}" >> "${ARBEIT}/programme.log" 2>&1; then
                 ok=$((ok + 1))
@@ -193,7 +195,22 @@ if [[ "${PROGRAMME,,}" != n* ]]; then
                 echo "   ${rel}: nicht übernommen (fehlt in der Sicherung?)"
             fi
         done
-        command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/.var/app" "${HOMEDIR}/.config" 2> /dev/null
+        # Obsidian-Vaults samt .obsidian (LiveSync-Plugin und -Einstellungen) an denselben
+        # Ort — Pfade aus der eben übernommenen Obsidian-Konfiguration
+        oj="${HOMEDIR}/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json"
+        if [[ -r "${oj}" ]]; then
+            while read -r vault; do
+                rel="${vault#/home/${BENUTZER}/}"
+                [[ "${rel}" != "${vault}" && -n "${rel}" ]] || continue
+                if restic restore "latest:${vault}" --host pop-os \
+                        --target "${HOMEDIR}/${rel}" >> "${ARBEIT}/programme.log" 2>&1; then
+                    ok=$((ok + 1)); echo "   Obsidian-Vault: ~/${rel}"
+                else
+                    fehl=$((fehl + 1)); echo "   Obsidian-Vault ~/${rel}: nicht übernommen"
+                fi
+            done < <(grep -oE '"path":"[^"]+"' "${oj}" | sed -E 's/^"path":"(.*)"$/\1/')
+        fi
+        command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}" 2> /dev/null
         meldung="Programm-Einstellungen aus Pop!_OS: ${ok} Bereiche übernommen"
         (( fehl > 0 )) && meldung+=", ${fehl} nicht vorhanden"
         ERGEBNIS+=("${meldung}")

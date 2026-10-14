@@ -57,7 +57,9 @@ apt-get update -qq
 apt-get install -y -qq restic nfs-common curl > /dev/null || { echo "restic/nfs-common nicht installierbar"; exit 1; }
 mkdir -p "${MNT}"
 if ! mountpoint -q "${MNT}"; then
-    mount -t nfs -o ro,soft,timeo=150,retrans=3 "${NAS}:${NFS_PFAD}" "${MNT}" \
+    # nicht schreibgeschützt: restic legt auch beim Lesen eine Sperrdatei an
+    # (Laptop 14.10.2026: „read-only file system“ bei locks/)
+    mount -t nfs -o soft,timeo=150,retrans=3 "${NAS}:${NFS_PFAD}" "${MNT}" \
         || { echo "TrueNAS ${NAS} nicht erreichbar — im Heimnetz?"; exit 1; }
     EINGEHAENGT=1
 fi

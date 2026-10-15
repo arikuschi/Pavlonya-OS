@@ -63,6 +63,22 @@ jobs:
             grep -q "^ghcr.io/" /usr/share/pavlonya-os/image-ref
           ' "${IMAGE_REF}"
 
+      # Neu in Schichten aufteilen (Fedoras Werkzeug): entfernte Pakete des
+      # Grundbestands liegen sonst ausgeblendet in der untersten Schicht weiter und
+      # werden mit heruntergeladen. Nebeneffekt: Updates laden nur geänderte Pakete.
+      - name: Neu aufteilen (rechunk)
+        run: |
+          set -euxo pipefail
+          sudo podman run --rm --privileged -v /var/lib/containers:/var/lib/containers \
+            "quay.io/fedora/fedora-bootc:${FEDORA_VERSION}" \
+            /usr/libexec/bootc-base-imagectl rechunk \
+            "localhost/${IMAGE_NAME}:build" "localhost/${IMAGE_NAME}:chunked"
+          sudo podman inspect "localhost/${IMAGE_NAME}:chunked" --format '{{json .Labels}}'
+          test "$(sudo podman inspect "localhost/${IMAGE_NAME}:chunked" --format '{{index .Labels "containers.bootc"}}')" = 1
+          sudo podman run --rm "localhost/${IMAGE_NAME}:chunked" bash -c \
+            '! rpm -q python3-botocore gdm && test ! -e /usr/lib/python3*/site-packages/botocore && cat /usr/lib/pavlonya-os-release'
+          sudo podman images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep "${IMAGE_NAME}"
+
       - name: Hochladen
         if: github.event_name != 'pull_request'
         env:
@@ -71,7 +87,7 @@ jobs:
           set -euo pipefail
           echo "${REGISTRY_PASSWORD}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
           for TAG in "${FEDORA_VERSION}" "${FEDORA_VERSION}-$(date -u +%Y%m%d)" latest; do
-            sudo podman push --digestfile /tmp/digest "${IMAGE_NAME}:build" "docker://${IMAGE_REF}:${TAG}"
+            sudo podman push --digestfile /tmp/digest "localhost/${IMAGE_NAME}:chunked" "docker://${IMAGE_REF}:${TAG}"
           done
           echo "DIGEST=$(cat /tmp/digest)" >> "$GITHUB_ENV"
 

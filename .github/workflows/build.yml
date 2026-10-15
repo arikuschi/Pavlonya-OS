@@ -59,6 +59,7 @@ jobs:
             ssh-keygen -A >/dev/null && sshd -T | grep -qi "^permitrootlogin no"
             test -x /usr/libexec/pavlonya-ersteinrichtung && rpm -q zenity gnome-disk-utility gparted
             test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup
+            ! rpm -q gdm gnome-shell rygel > /dev/null   # kein GNOME-Desktop im Image
             grep -q "^ghcr.io/" /usr/share/pavlonya-os/image-ref
           ' "${IMAGE_REF}"
 

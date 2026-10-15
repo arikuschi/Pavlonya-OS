@@ -1,7 +1,6 @@
 # Basissystem: Netzwerk, Bluetooth, Audio, Container, Dateisysteme.
 
 NetworkManager-wifi
-NetworkManager-bluetooth
 NetworkManager-tui
 firewalld
 

@@ -7,6 +7,12 @@ set -euxo pipefail
 
 FEDORA="$(rpm -E %fedora)"
 
+# Kein GNOME-Desktop im Image: kam nur als empfohlenes Zusatzpaket mit (GNOME Shell,
+# GDM, Systemeinstellungen, Rygel — Laptop 15.10.2026). Für alle Bau-Schritte
+# ausgeschlossen; braucht ein Paket eines davon zwingend, bricht der Bau ab und
+# nennt es. 90-cleanup.sh nimmt den Ausschluss wieder heraus.
+echo "excludepkgs=gdm,gnome-shell,gnome-shell-extension-*,gnome-session,gnome-session-*,gnome-control-center,mutter,rygel" >> /etc/dnf/dnf.conf
+
 # RPM Fusion — für Steam (nonfree)
 dnf -y install \
     "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \

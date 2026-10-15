@@ -18,6 +18,7 @@ greetd                      # Unterbau von cosmic-greeter
 greetd-selinux
 polkit
 gnome-keyring
+seahorse                    # Schlüsselbund verwalten (Kennwort ändern, Einträge ansehen)
 gnome-keyring-pam           # entsperrt den Schlüsselbund beim Anmelden — ohne fragen
                             # Apps ständig nach einem Schlüsselbund-Kennwort (VM-Test 11.10.2026)
 xdg-user-dirs

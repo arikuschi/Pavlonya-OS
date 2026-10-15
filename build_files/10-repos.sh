@@ -13,6 +13,11 @@ FEDORA="$(rpm -E %fedora)"
 # nennt es. 90-cleanup.sh nimmt den Ausschluss wieder heraus.
 echo "excludepkgs=gdm,gnome-shell,gnome-shell-extension-*,gnome-session,gnome-session-*,gnome-control-center,mutter,rygel" >> /etc/dnf/dnf.conf
 
+# Grundsätzlich KEINE Empfehlungen (weak dependencies) installieren — sie brachten
+# 223 Pakete / ~1 GB ungenutzt mit (Messung 15.10.2026). Was davon gebraucht wird,
+# steht ausdrücklich in packages/60-bewusst-aus-empfehlungen.txt.
+echo "install_weak_deps=False" >> /etc/dnf/dnf.conf
+
 # RPM Fusion — für Steam (nonfree)
 dnf -y install \
     "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \

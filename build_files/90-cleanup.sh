@@ -14,7 +14,7 @@ KERNEL=$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)
 NVIDIA=$(rpm -q --qf '%{VERSION}' nvidia-driver)
 REL
 
-sed -i '/^excludepkgs=gdm,/d' /etc/dnf/dnf.conf
+sed -i '/^excludepkgs=gdm,/d; /^install_weak_deps=False/d' /etc/dnf/dnf.conf
 dnf -y clean all
 rm -rf /build_files /packages /system_files /keys /tmp/nvidia
 rm -rf /var/cache/* /var/log/* /var/tmp/* /tmp/* /run/* 2>/dev/null || true

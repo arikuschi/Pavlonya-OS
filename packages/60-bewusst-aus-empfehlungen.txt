@@ -1,0 +1,12 @@
+# Pakete, die früher nur als „Empfehlung“ mitkamen und die wir BEWUSST behalten.
+# Seit 15.10.2026 installiert der Bau keine Empfehlungen mehr automatisch
+# (Sergej: schlanke Distribution, nichts Unbenutztes im Image). Alles hier steht
+# mit Grund — was nicht hier oder in den anderen Listen steht, kommt nicht hinein.
+
+cosmic-wallpapers           # Hintergrundbilder von COSMIC (auch der aktuelle)
+dconf                       # Einstellungsspeicher für GTK-Programme (Laufwerke, Seahorse, GParted)
+glibc-gconv-extra           # Zeichensatz-Umwandlungen für ältere Dateien/Programme
+cups-filters-driverless     # Drucken ohne Treiber (Brother per IPP)
+ntsync-autoload             # schnellere Windows-Spiele unter Proton (Steam)
+usbmuxd                     # iPhone per USB (Dateien, Laden, Tethering)
+libheif-freeworld           # HEIC-Fotos vom iPhone anzeigen (RPM Fusion)

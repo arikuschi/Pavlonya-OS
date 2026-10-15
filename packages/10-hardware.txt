@@ -5,7 +5,7 @@ amd-ucode-firmware          # CPU-Microcode Ryzen 5800H
 amd-gpu-firmware            # iGPU Cezanne
 nvidia-gpu-firmware         # GSP-Firmware, Pflicht für nvidia-open
 mt7xxx-firmware             # WLAN + Bluetooth MT7921
-alsa-sof-firmware           # Audio; ob nötig, am Gerät prüfen (dmesg | grep -i sof)
+# kein alsa-sof-firmware: Audio läuft über HD-Audio (snd_hda_intel), keine SOF-Karte (geprüft 15.10.2026)
 
 fwupd                       # Firmware-Updates über LVFS
 pciutils

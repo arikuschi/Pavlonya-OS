@@ -7,11 +7,29 @@ set -euxo pipefail
 
 FEDORA="$(rpm -E %fedora)"
 
+# --- Fedora-Grundbestand ausdünnen (15.10.2026: schlank) -------------
+# Aus fedora-bootc, auf diesem Laptop ohne Nutzen (geprüft am Gerät):
+#   python3-boto3/-botocore  AWS-Werkzeuge für Cloud-Server (~130 MB)
+#   toolbox                  doppelt zu distrobox
+#   sos                      Red-Hat-Supportberichte
+#   ModemManager, libqmi, libmbim, NetworkManager-wwan   Mobilfunkmodem (keins verbaut)
+#   sg3_utils                SCSI-Werkzeuge
+#   Firmware fremder Hardware: Atheros, Broadcom, TI, NXP, Realtek (WLAN/BT ist
+#   MediaTek, LAN-Firmware liegt in linux-firmware), Intel-Grafik/-Audio/-NPU,
+#   Cirrus-Audio, Qualcomm-WWAN
+BASIS_RAUS=(
+    python3-boto3 python3-botocore toolbox sos sg3_utils
+    ModemManager libqmi libmbim NetworkManager-wwan
+    atheros-firmware brcmfmac-firmware tiwilink-firmware nxpwireless-firmware realtek-firmware
+    intel-gpu-firmware intel-audio-firmware intel-npu-firmware cirrus-audio-firmware qcom-wwan-firmware
+)
+dnf -y remove --no-autoremove "${BASIS_RAUS[@]}"
+
 # Kein GNOME-Desktop im Image: kam nur als empfohlenes Zusatzpaket mit (GNOME Shell,
 # GDM, Systemeinstellungen, Rygel — Laptop 15.10.2026). Für alle Bau-Schritte
 # ausgeschlossen; braucht ein Paket eines davon zwingend, bricht der Bau ab und
 # nennt es. 90-cleanup.sh nimmt den Ausschluss wieder heraus.
-echo "excludepkgs=gdm,gnome-shell,gnome-shell-extension-*,gnome-session,gnome-session-*,gnome-control-center,mutter,rygel" >> /etc/dnf/dnf.conf
+echo "excludepkgs=gdm,gnome-shell,gnome-shell-extension-*,gnome-session,gnome-session-*,gnome-control-center,mutter,rygel,$(IFS=,; echo "${BASIS_RAUS[*]}")" >> /etc/dnf/dnf.conf
 
 # Grundsätzlich KEINE Empfehlungen (weak dependencies) installieren — sie brachten
 # 223 Pakete / ~1 GB ungenutzt mit (Messung 15.10.2026). Was davon gebraucht wird,

@@ -61,6 +61,9 @@ Normal: Push nach GitHub → der Workflow baut, lädt nach
 - Nach einer Neuinstallation: `sudo pavlonya-wiederherstellen` — fragt nach
   TrueNAS-Adresse und restic-Kennwort und holt VPN-Verbindungen,
   Backup-Einstellungen und SSH-Schlüssel aus der letzten Sicherung zurück.
+  Auf Nachfrage zusätzlich Programm-Einstellungen aus der Pop!_OS-Sicherung —
+  nur was ohne Schlüsselbund funktioniert (Liste `PROGRAMM_EINSTELLUNGEN` im Skript);
+  Schlüsselbund und Tabby (eigener Sync) kommen nicht mit.
 
 ## Updates
 

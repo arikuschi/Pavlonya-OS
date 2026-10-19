@@ -8,10 +8,9 @@
 #   - SSH-Schlüssel        ~/.ssh
 # Vorhandene Dateien werden NICHT überschrieben.
 #
-# Danach auf Wunsch: Programm-Einstellungen aus der letzten Pop!_OS-Sicherung
-# (alle Flatpaks unter ~/.var/app, Tabby, VS Code, Schlüsselbund). Diese werden
-# ÜBERSCHRIEBEN —
-# die Programme müssen dafür geschlossen sein (14.10.2026).
+# Danach auf Wunsch: Programm-Einstellungen aus der letzten Pop!_OS-Sicherung —
+# nur die Programme aus PROGRAMM_EINSTELLUNGEN unten, ohne Schlüsselbund. Diese
+# werden ÜBERSCHRIEBEN; die Programme müssen dafür geschlossen sein.
 #
 # Aufruf:  sudo pavlonya-wiederherstellen [--host pavlonya-os|pop-os]
 # Fragt nach der TrueNAS-Adresse (Vault: „Homelab Pavlonya") und dem
@@ -42,7 +41,7 @@ HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
 echo "=== Pavlonya OS — Gerätedaten wiederherstellen (Benutzer ${BENUTZER}) ==="
 read -rp "TrueNAS-Adresse (IP, steht im Vault unter „Homelab Pavlonya“): " NAS
 read -rsp "restic-Kennwort (Bitwarden): " PASSWORT; echo
-read -rp "Auch Programm-Einstellungen aus Pop!_OS übernehmen (Floorp, Thunderbird, Tabby, Zed …)? [J/n] " PROGRAMME
+read -rp "Auch Programm-Einstellungen aus Pop!_OS übernehmen (Browser, Thunderbird, Obsidian, WinBox …)? [J/n] " PROGRAMME
 
 GID="$(id -g "${BENUTZER}")"
 ARBEIT="$(mktemp -d /var/tmp/pavlonya-wiederherstellen.XXXX)"
@@ -176,31 +175,59 @@ command -v restorecon > /dev/null && [[ -d "${HOMEDIR}/.ssh" ]] && restorecon -R
 ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
 
 # --- Programm-Einstellungen aus Pop!_OS ----------------------------------------
+# Nur, was ohne den Pop!_OS-Schlüsselbund funktioniert (19.10.2026: saubere
+# Distro, Schlüsselbund nicht übertragen; Tabby kommt über den eigenen Sync;
+# RustDesk-Kennwörter hängen an der Geräte-ID und gingen nicht).
+# Zeile: <Pfad unter ~>|<Ausschluss>|… — Ausschlüsse mit „/“ vorn gelten ab diesem
+# Pfad, ohne „/“ überall darunter.
+#   Zwischenspeicher (cache, .ld.so, Cache-Ordner) braucht niemand.
+#   keyrings = Kennwortspeicher der Flatpaks, verschlüsselt mit einem Schlüssel aus
+#   dem Pop!_OS-Schlüsselbund — unbrauchbar ohne ihn.
+#   Chrome/Chromium/Obsidian verschlüsseln Cookies und Kennwörter ebenfalls mit dem
+#   Schlüsselbund: die bleiben weg, Lesezeichen, Erweiterungen, Verlauf kommen mit.
+#   Floorp und Thunderbird haben einen eigenen Kennwortspeicher (key4.db): komplett.
+FLATPAK_RAUS="/cache|/.ld.so|keyrings"
+CHROMIUM_RAUS="Cookies*|Login Data*|Cache|Code Cache|GPUCache|DawnGraphiteCache|DawnWebGPUCache"
+PROGRAMM_EINSTELLUNGEN=(
+    ".var/app/one.ablaze.floorp|${FLATPAK_RAUS}"
+    ".var/app/com.google.Chrome|${FLATPAK_RAUS}|${CHROMIUM_RAUS}"
+    ".var/app/org.chromium.Chromium|${FLATPAK_RAUS}|${CHROMIUM_RAUS}"
+    ".var/app/org.mozilla.thunderbird|${FLATPAK_RAUS}"
+    ".var/app/md.obsidian.Obsidian|${FLATPAK_RAUS}|${CHROMIUM_RAUS}"
+    ".var/app/com.mikrotik.WinBox|${FLATPAK_RAUS}"
+    ".var/app/org.remmina.Remmina|${FLATPAK_RAUS}"
+    ".var/app/com.bambulab.BambuStudio|${FLATPAK_RAUS}"
+    ".var/app/dev.zed.Zed/config/zed"
+    ".vscode/extensions"
+)
+
 # Quelle ist immer die letzte Pop!_OS-Sicherung (dort liegt das Home unter /home).
 # restic läuft als Benutzer und schreibt direkt ins Home — Dateien gehören ihm.
 if [[ "${PROGRAMME,,}" != n* ]]; then
     if hat_snapshot pop-os; then
         echo
-        echo "Programm-Einstellungen aus Pop!_OS werden übernommen. Bitte alle Programme"
-        echo "schließen (Floorp, Thunderbird, Obsidian, Tabby, Zed, VS Code …)."
+        echo "Programm-Einstellungen aus Pop!_OS werden übernommen. Bitte diese Programme"
+        echo "schließen: Floorp, Chrome, Chromium, Thunderbird, Obsidian, WinBox, Remmina,"
+        echo "Bambu Studio, Zed, VS Code."
         read -rp "Weiter mit Enter … " _
-        ok=0; fehl=0
-        # Schlüsselbund: gleiches Anmeldekennwort auf beiden Systemen (14.10.2026)
-        for rel in .var/app .config/tabby .config/Code .vscode .local/share/keyrings; do
+        ok=(); fehl=()
+        for eintrag in "${PROGRAMM_EINSTELLUNGEN[@]}"; do
+            IFS='|' read -ra teile <<< "${eintrag}"
+            rel="${teile[0]}"
+            EXCL=()
+            for e in "${teile[@]:1}"; do EXCL+=(--exclude "${e}"); done
             if restic restore "latest:/home/${BENUTZER}/${rel}" --host pop-os \
-                    --target "${HOMEDIR}/${rel}" >> "${ARBEIT}/programme.log" 2>&1; then
-                ok=$((ok + 1))
+                    --target "${HOMEDIR}/${rel}" "${EXCL[@]}" >> "${ARBEIT}/programme.log" 2>&1; then
+                ok+=("${rel##*/}")
             else
-                fehl=$((fehl + 1))
-                echo "   ${rel}: nicht übernommen (fehlt in der Sicherung?)"
+                fehl+=("${rel##*/}")
             fi
         done
         # Obsidian-Vaults kommen NICHT mit — die folgen mit allen Dokumenten beim
-        # Umzug (14.10.2026); hier nur die Obsidian-Programmeinstellungen (~/.var/app).
+        # Umzug (14.10.2026); hier nur die Obsidian-Programmeinstellungen.
         command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}" 2> /dev/null
-        meldung="Programm-Einstellungen aus Pop!_OS: ${ok} Bereiche übernommen"
-        (( fehl > 0 )) && meldung+=", ${fehl} nicht vorhanden"
-        ERGEBNIS+=("${meldung}")
+        ERGEBNIS+=("Programm-Einstellungen aus Pop!_OS: ${#ok[@]} übernommen (${ok[*]})")
+        (( ${#fehl[@]} > 0 )) && ERGEBNIS+=("   nicht in der Sicherung: ${fehl[*]}")
     else
         ERGEBNIS+=("Programm-Einstellungen: keine Pop!_OS-Sicherung gefunden")
     fi

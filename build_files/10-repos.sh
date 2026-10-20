@@ -37,9 +37,13 @@ echo "excludepkgs=gdm,gnome-shell,gnome-shell-extension-*,gnome-session,gnome-se
 echo "install_weak_deps=False" >> /etc/dnf/dnf.conf
 
 # RPM Fusion — für Steam (nonfree)
+# Die Release-Pakete direkt vom Hauptserver: Der Verteiler mirrors.rpmfusion.org
+# schickte die GitHub-Runner am 20.10.2026 auf einen toten Spiegel
+# (repos.eggycrew.com), der Bau brach ab. Die Pakete selbst kommen danach über
+# die Spiegelliste der Quelle, dort probiert dnf mehrere Spiegel durch.
 dnf -y install \
-    "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
-    "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"
+    "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
+    "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"
 
 # Visual Studio Code — offizielles Microsoft-Repo
 rpm --import https://packages.microsoft.com/keys/microsoft.asc

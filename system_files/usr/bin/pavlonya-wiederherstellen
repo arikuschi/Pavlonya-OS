@@ -176,7 +176,10 @@ ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
 
 # --- Programm-Einstellungen aus Pop!_OS ----------------------------------------
 # Nur, was ohne den Pop!_OS-Schlüsselbund funktioniert (19.10.2026: saubere
-# Distro, Schlüsselbund nicht übertragen; Tabby kommt über den eigenen Sync).
+# Distro, Schlüsselbund nicht übertragen). Tabby wieder dabei (21.10.2026): die
+# leeren Flächen und Abstürze kamen nicht von seinen Einstellungen, sondern vom
+# fontconfig-Cache, den die Ubuntu-Box überschrieb. Im Schlüsselbund gespeicherte
+# SSH-Kennwörter fragt Tabby einmal neu ab.
 # RustDesk fragt danach je Gegenstelle einmal deren Kennwort ab — die gespeicherten
 # hängen an der Geräte-ID; sonst funktioniert es (19.10.2026).
 # Zeile: <Pfad unter ~>|<Ausschluss>|… — Ausschlüsse mit „/“ vorn gelten ab diesem
@@ -201,6 +204,7 @@ PROGRAMM_EINSTELLUNGEN=(
     ".var/app/com.bambulab.BambuStudio|${FLATPAK_RAUS}"
     ".var/app/dev.zed.Zed/config/zed"
     ".vscode/extensions"
+    ".config/tabby|${CHROMIUM_RAUS}"
 )
 
 # Quelle ist immer die letzte Pop!_OS-Sicherung (dort liegt das Home unter /home).
@@ -210,7 +214,7 @@ if [[ "${PROGRAMME,,}" != n* ]]; then
         echo
         echo "Programm-Einstellungen aus Pop!_OS werden übernommen. Bitte diese Programme"
         echo "schließen: Floorp, Chrome, Chromium, Thunderbird, Obsidian, WinBox, Remmina,"
-        echo "RustDesk, Bambu Studio, Zed, VS Code."
+        echo "RustDesk, Bambu Studio, Zed, VS Code, Tabby."
         read -rp "Weiter mit Enter … " _
         ok=(); fehl=()
         for eintrag in "${PROGRAMM_EINSTELLUNGEN[@]}"; do

@@ -61,6 +61,8 @@ jobs:
             test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup
             ! rpm -q gdm gnome-shell mutter rygel breeze-icon-theme localsearch python3-botocore toolbox ModemManager atheros-firmware > /dev/null   # nichts Ungenutztes (keine Empfehlungen)
             grep -q "^ghcr.io/" /usr/share/pavlonya-os/image-ref
+            grep -q "^PRETTY_NAME=\"Pavlonya OS " /etc/os-release && grep -q "^ID=fedora$" /etc/os-release
+            test -f /usr/share/icons/hicolor/scalable/apps/pavlonya-os.svg
           ' "${IMAGE_REF}"
 
       # Neu in Schichten aufteilen (Fedoras Werkzeug): entfernte Pakete des

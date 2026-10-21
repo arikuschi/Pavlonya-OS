@@ -7,6 +7,32 @@ cp -a /system_files/. /
 # Image-Name für die einmalige Umstellung auf das signierte Image
 echo "${IMAGE_REF}:${FEDORA_VERSION}" > /usr/share/pavlonya-os/image-ref
 
+# --- Name und Logo -----------------------------------------------------------
+# Angezeigt wird überall „Pavlonya OS“: Startmenü (ostree nimmt PRETTY_NAME als
+# Titel der Einträge), Terminal-Anzeigen, COSMIC „Über“. ID=fedora und
+# VERSION_ID bleiben — daran erkennen bootc, dnf, Distrobox und der Installer
+# das System. DEFAULT_HOSTNAME gilt nur, solange kein Rechnername gesetzt ist.
+# Eine Datei statt Symlink: sed -i schreibt /usr/lib/os-release als eigene Datei.
+setze_os_release() {
+    local schluessel="$1" wert="$2"
+    if grep -q "^${schluessel}=" /usr/lib/os-release; then
+        sed -i "s|^${schluessel}=.*|${schluessel}=${wert}|" /usr/lib/os-release
+    else
+        echo "${schluessel}=${wert}" >> /usr/lib/os-release
+    fi
+}
+setze_os_release NAME             '"Pavlonya OS"'
+setze_os_release PRETTY_NAME      "\"Pavlonya OS ${FEDORA_VERSION} (COSMIC)\""
+setze_os_release LOGO             pavlonya-os
+setze_os_release DEFAULT_HOSTNAME '"pavlonya-os"'
+setze_os_release HOME_URL         '"https://github.com/arikuschi/Pavlonya-OS"'
+install -Dm644 /usr/share/icons/hicolor/scalable/apps/pavlonya-os.svg \
+               /usr/share/pixmaps/pavlonya-os.svg
+if command -v gtk-update-icon-cache > /dev/null; then
+    gtk-update-icon-cache -q -f -t /usr/share/icons/hicolor
+fi
+cat /usr/lib/os-release
+
 # --- Signaturprüfung für eigene Updates --------------------------------------
 # Ohne öffentlichen Schlüssel bleibt die Prüfung aus (lokaler Testbau).
 if [[ -s /keys/cosign.pub ]]; then
@@ -63,6 +89,10 @@ fi
 
 # --- Selbstprüfung -----------------------------------------------------------
 test "$(systemctl get-default)" = graphical.target
+grep -q '^NAME="Pavlonya OS"$' /etc/os-release
+grep -q '^ID=fedora$' /etc/os-release
+grep -q '^VERSION_ID=' /etc/os-release
+test -f /usr/share/pixmaps/pavlonya-os.svg
 test -f /usr/share/wayland-sessions/cosmic.desktop
 # COSMIC-Vorgabe für die Tastatur: gilt für jeden Benutzer ohne eigene Einstellung
 # und damit auch für den Anmeldebildschirm (der liest die Einstellung des Benutzers)

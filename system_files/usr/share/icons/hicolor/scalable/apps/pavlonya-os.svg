@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Pavlonya OS Logo („Ring-P“) -->
+  <defs>
+    <linearGradient id="pavlonya-os-verlauf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3cc6d6"/>
+      <stop offset="1" stop-color="#4a5bd4"/>
+    </linearGradient>
+  </defs>
+  <circle cx="128" cy="128" r="128" fill="url(#pavlonya-os-verlauf)"/>
+  <path d="M84 196V104" fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="128" cy="104" r="44" fill="none" stroke="#ffffff" stroke-width="26"/>
+</svg>

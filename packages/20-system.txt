@@ -21,6 +21,8 @@ seahorse                    # Schlüsselbund verwalten (Kennwort ändern, Eintr�
 gnome-keyring-pam           # entsperrt den Schlüsselbund beim Anmelden — ohne fragen
                             # Apps ständig nach einem Schlüsselbund-Kennwort (VM-Test 11.10.2026)
 xdg-user-dirs
+nss-mdns                    # löst .local-Namen auf (Drucker BRN….local); ohne es scheitert das
+                            # Einrichten im Druckerdialog (fehlte seit dem Bau ohne Empfehlungen, 21.10.2026)
 
 podman
 distrobox

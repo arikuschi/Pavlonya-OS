@@ -47,6 +47,21 @@ else
     echo "HINWEIS: keys/cosign.pub fehlt — Image ohne Signaturprüfung gebaut."
 fi
 
+# --- .local-Namen (mDNS) -----------------------------------------------------
+# nss-mdns allein reicht nicht: „mdns4_minimal“ muss in der hosts-Zeile von
+# /etc/nsswitch.conf stehen. Mit authselect über dessen Schalter, sonst direkt.
+if ! grep -Eq '^hosts:.*mdns4_minimal' /etc/nsswitch.conf; then
+    if authselect current > /dev/null 2>&1; then
+        authselect enable-feature with-mdns4
+    else
+        sed -i --follow-symlinks -E \
+            '/^hosts:/{/mdns4_minimal/!s/^(hosts:[[:space:]]+files)/\1 mdns4_minimal [NOTFOUND=return]/}' \
+            /etc/nsswitch.conf
+    fi
+fi
+grep -E '^hosts:' /etc/nsswitch.conf
+grep -Eq '^hosts:.*mdns4_minimal' /etc/nsswitch.conf
+
 # --- Dienste -----------------------------------------------------------------
 systemctl enable \
     cosmic-greeter.service \

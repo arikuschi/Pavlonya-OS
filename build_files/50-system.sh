@@ -115,6 +115,10 @@ test -f /usr/share/wayland-sessions/cosmic.desktop
 # COSMIC-Vorgabe für die Tastatur: gilt für jeden Benutzer ohne eigene Einstellung
 # und damit auch für den Anmeldebildschirm (der liest die Einstellung des Benutzers)
 grep -q 'layout: "de"' /usr/share/cosmic/com.system76.CosmicComp/v1/xkb_config
+# Nummernblock bei jedem Start an — Anmeldebildschirm und Sitzung (Wunsch
+# 21.10.2026). Systemvorgabe von cosmic-comp; wer in den Einstellungen etwas
+# anderes wählt, behält seine eigene Einstellung.
+grep -q 'numlock_state: BootOn' /usr/share/cosmic/com.system76.CosmicComp/v1/keyboard_config
 # Dock: Vorgabe wie das Pop!_OS-Dock (12.10.2026) statt Fedoras Liste mit
 # Firefox, das hier nicht installiert ist. Gilt für Benutzer ohne eigene Dock-Einstellung.
 grep -q 'one.ablaze.floorp' /usr/share/cosmic/com.system76.CosmicAppList/v1/favorites

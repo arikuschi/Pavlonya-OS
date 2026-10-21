@@ -54,6 +54,7 @@ jobs:
             cat /usr/lib/pavlonya-os-release
             rpm -q cosmic-session kmod-nvidia nvidia-driver steam code openssh-server gnome-keyring-pam
             test -f /usr/share/wayland-sessions/cosmic.desktop
+            grep -q 'numlock_state: BootOn' /usr/share/cosmic/com.system76.CosmicComp/v1/keyboard_config
             test -x /usr/lib/opt/Tabby/tabby || test -x /opt/Tabby/tabby
             grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
             test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service

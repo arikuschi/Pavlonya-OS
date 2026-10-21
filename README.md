@@ -40,9 +40,14 @@ Normal: Push nach GitHub → der Workflow baut, lädt nach
 1. ISO bauen, auf USB-Stick schreiben, Laptop davon starten (F12-Bootmenü).
 2. Im Installer **nur die Samsung 850 EVO** auswählen, Partitionen selbst
    festlegen, eigene EFI-Partition auf dieser Platte.
-3. Nach dem ersten Start auf das signierte Image von GitHub umschalten:
+3. Kein Umschalten nötig: Die ISO entsteht aus `ghcr.io/<github-name>/pavlonya-os:44`,
+   Updates kommen von dort (`sudo bootc status` zeigt das Image). Die Signatur prüft
+   `/etc/containers/policy.json` — für dieses Image `sigstoreSigned` mit
+   `/etc/pki/containers/pavlonya-os.pub`, für alle anderen (Distrobox, Podman) „annehmen“.
+   bootc wendet die Regel bei jedem Update an. `bootc switch --enforce-container-sigpolicy`
+   verweigert sich bei dieser Grundregel und wird nicht gebraucht. Ansehen:
 
-       sudo bootc switch --enforce-container-sigpolicy ghcr.io/<github-name>/pavlonya-os:44
+       podman image trust show
 
 4. Distroboxen anlegen:
 

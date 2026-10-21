@@ -14,6 +14,8 @@ lm_sensors
 
 # Energie: power-profiles-daemon, weil das COSMIC-Akku-Applet darüber umschaltet
 power-profiles-daemon
+upower                      # Akkustand für das COSMIC-Akku-Applet; fehlte seit dem Bau ohne
+                            # Empfehlungen (Prüfung am Laptop 21.10.2026: BAT1 da, upower nicht)
 switcheroo-control          # „Mit dedizierter Grafik starten" im Kontextmenü
 
 # Grafik-Stack

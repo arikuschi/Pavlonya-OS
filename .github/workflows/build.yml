@@ -55,7 +55,9 @@ jobs:
             rpm -q cosmic-session kmod-nvidia nvidia-driver steam code openssh-server gnome-keyring-pam
             test -f /usr/share/wayland-sessions/cosmic.desktop
             test -x /usr/lib/opt/Tabby/tabby || test -x /opt/Tabby/tabby
-            grep -q "${0}" /etc/containers/policy.json
+            grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
+            test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service
+            rpm -q upower
             ssh-keygen -A >/dev/null && sshd -T | grep -qi "^permitrootlogin no"
             test -x /usr/libexec/pavlonya-ersteinrichtung && rpm -q zenity gnome-disk-utility gparted
             test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup

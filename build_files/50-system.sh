@@ -4,7 +4,7 @@ set -euxo pipefail
 
 cp -a /system_files/. /
 
-# Image-Name für die einmalige Umstellung auf das signierte Image
+# Image-Name; für ihn verlangt /etc/containers/policy.json die cosign-Signatur
 echo "${IMAGE_REF}:${FEDORA_VERSION}" > /usr/share/pavlonya-os/image-ref
 
 # --- Name und Logo -----------------------------------------------------------
@@ -35,6 +35,10 @@ cat /usr/lib/os-release
 
 # --- Signaturprüfung für eigene Updates --------------------------------------
 # Ohne öffentlichen Schlüssel bleibt die Prüfung aus (lokaler Testbau).
+# policy.json: Grundregel „annehmen“ (Distrobox, Podman), für das eigene Image
+# sigstoreSigned. bootc wendet die Regel bei jedem Update an, auch ohne
+# --enforce-container-sigpolicy; dieser Schalter verweigert sich sogar, solange
+# die Grundregel „annehmen“ lautet (am Laptop 21.10.2026 gesehen).
 if [[ -s /keys/cosign.pub ]]; then
     install -Dm644 /keys/cosign.pub /etc/pki/containers/pavlonya-os.pub
     sed "s|@IMAGE_REF@|${IMAGE_REF}|" /usr/share/pavlonya-os/policy.json.in \
@@ -56,7 +60,6 @@ systemctl enable \
     pavlonya-update.timer \
     pavlonya-flatpaks.service \
     pavlonya-ensure-user.service \
-    pavlonya-signiert-umstellen.service \
     pavlonya-backup.timer
 
 # Für jeden Benutzer: Distroboxen täglich aktualisieren (läuft nach der Anmeldung)

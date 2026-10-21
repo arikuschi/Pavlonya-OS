@@ -13,6 +13,11 @@ ARG KERNEL_FLAVOR=main
 # Vorgebaute nvidia-open-Module samt passendem Kernel (Universal Blue)
 FROM ghcr.io/ublue-os/akmods-nvidia-open:${KERNEL_FLAVOR}-${FEDORA_VERSION} AS nvidia
 
+# gnome-keyring mit Absturz-Fix neu bauen (Grund: keyring/build.sh)
+FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS keyring
+COPY keyring /keyring
+RUN --mount=type=cache,dst=/var/cache/libdnf5 /keyring/build.sh
+
 FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION}
 
 ARG FEDORA_VERSION
@@ -24,11 +29,13 @@ COPY packages /packages
 COPY system_files /system_files
 COPY keys /keys
 COPY --from=nvidia / /tmp/nvidia
+COPY --from=keyring /out /tmp/keyring
 
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/10-repos.sh
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/20-kernel-nvidia.sh
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/30-packages.sh
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/40-extras.sh
+RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/45-keyring.sh
 RUN IMAGE_REF="${IMAGE_REF}" FEDORA_VERSION="${FEDORA_VERSION}" /build_files/50-system.sh
 RUN /build_files/60-initramfs.sh
 RUN FEDORA_VERSION="${FEDORA_VERSION}" /build_files/90-cleanup.sh

@@ -63,6 +63,7 @@ jobs:
             grep -q "^ghcr.io/" /usr/share/pavlonya-os/image-ref
             grep -q "^PRETTY_NAME=\"Pavlonya OS " /etc/os-release && grep -q "^ID=fedora$" /etc/os-release
             test -f /usr/share/icons/hicolor/scalable/apps/pavlonya-os.svg
+            rpm -q gnome-keyring | grep -q "\.pavlonya\." && grep -q "Couldn.t open a session for this caller" /usr/bin/gnome-keyring-daemon
           ' "${IMAGE_REF}"
 
       # Neu in Schichten aufteilen (Fedoras Werkzeug): entfernte Pakete des

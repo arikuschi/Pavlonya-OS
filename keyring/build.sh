@@ -30,15 +30,21 @@ rpm -i --define "_topdir ${TOP}" gnome-keyring-*.src.rpm
 SPEC="${TOP}/SPECS/gnome-keyring.spec"
 cp /keyring/opensession-fix.patch "${TOP}/SOURCES/"
 
-# Patch-Zeile nach der ersten Source-Zeile einfügen; %autosetup -p1 wendet sie an.
-grep -Eq '^%autosetup.*-p1' "${SPEC}" || {
-    echo "FEHLER: gnome-keyring.spec nutzt kein '%autosetup -p1' — Patch würde nicht angewendet" >&2
+# %autosetup muss die Patches anwenden, und zwar mit -p1: Fedora nutzt
+# „%autosetup -S git“ (git apply, Vorgabe -p1); ohne -S braucht es „-p1“.
+# Mit -N würden gar keine Patches angewendet.
+SETUP="$(grep -E '^%autosetup' "${SPEC}" || true)"
+if [[ -z "${SETUP}" || "${SETUP}" =~ [[:space:]]-N([[:space:]]|$) ]] \
+   || ! [[ "${SETUP}" =~ -S[[:space:]]*git || "${SETUP}" =~ -p1 ]]; then
+    echo "FEHLER: unerwartete Zeile in gnome-keyring.spec: '${SETUP}' — Patch würde nicht angewendet" >&2
     exit 1
-}
-awk '!eingefuegt && /^Source[0-9]*:/ { print; print "Patch9001: opensession-fix.patch"; eingefuegt = 1; next } { print }' \
-    "${SPEC}" > "${SPEC}.neu"
-mv "${SPEC}.neu" "${SPEC}"
-grep -n -E '^(Name|Version|Release|Source[0-9]*|Patch[0-9]*):' "${SPEC}"
+fi
+# Patch-Zeile hinter Fedoras letzte Patch-Zeile (sonst hinter die erste
+# Source-Zeile): höhere Nummer, also wird unser Patch zuletzt angewendet.
+if grep -Eq '^Patch[0-9]*:' "${SPEC}"; then MUSTER='^Patch[0-9]*:'; else MUSTER='^Source[0-9]*:'; fi
+ZEILE="$(grep -En "${MUSTER}" "${SPEC}" | { if [[ "${MUSTER}" == '^Patch[0-9]*:' ]]; then tail -1; else head -1; fi; } | cut -d: -f1)"
+sed -i "${ZEILE}a Patch9001: opensession-fix.patch" "${SPEC}"
+grep -n -E '^(Name|Version|Release|Source[0-9]*|Patch[0-9]*):|^%autosetup' "${SPEC}"
 
 dnf -y builddep "${SPEC}"
 rpmbuild -bb --nocheck \

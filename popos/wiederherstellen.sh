@@ -5,12 +5,14 @@
 #
 # Fragt nach TrueNAS-Adresse (Vault: „Homelab Pavlonya“) und restic-Kennwort
 # (Bitwarden). Dann, in dieser Reihenfolge:
-#   1. Fremdquellen (Claude, ChatGPT, VS Code, Tabby …)   4. Laufwerke (TrueNAS, Storage Box)
-#   2. Programme (Pakete + Flatpaks)                       5. Backup-Dienst
-#   3. VPN und WLAN (netplan)                              6. Einstellungen und Daten im Home
-# Vorhandene Dateien im System werden nicht überschrieben; das Home wird aus der
-# Sicherung zurückgespielt. Enthält keine Geheimnisse — die kommen nur aus dem
-# verschlüsselten Backup.
+#   1. Fremdquellen (Claude, ChatGPT, VS Code, Tabby …)   5. System-Einstellungen (Grafik,
+#   2. Programme (Pakete, Flatpaks, rclone)                  Drucker, SSH, Bluetooth, FUSE)
+#   3. VPN und WLAN (netplan)                              6. Backup-Dienst
+#   4. Laufwerke (TrueNAS, Storage Box)                    7. Home: Einstellungen und Daten
+# Vorhandene Dateien im System werden nicht überschrieben — außer in Schritt 5, wo die
+# Vorgaben der Neuinstallation bewusst durch den gesicherten Stand ersetzt werden (die
+# frische Fassung bleibt als *.neuinstallation daneben). Das Home wird aus der Sicherung
+# zurückgespielt. Enthält keine Geheimnisse — die kommen nur aus dem verschlüsselten Backup.
 set -uo pipefail
 
 NFS_PFAD="/mnt/pavlonya-data/backups/linux"
@@ -76,7 +78,8 @@ echo "Letzte Sicherung: ${SNAP}"
 SYS=( /etc/netplan /etc/fstab /etc/hosts /root/.ssh /etc/apt/sources.list.d /etc/apt/keyrings
       /usr/share/keyrings /etc/popos-backup /usr/local/sbin/popos-backup
       /etc/systemd/system/popos-backup.service /etc/systemd/system/popos-backup.timer
-      /var/lib/popos-backup/inventar )
+      /var/lib/popos-backup/inventar
+      /etc/modprobe.d /etc/fuse.conf /etc/cups/printers.conf /etc/cups/ppd /etc/ssh /var/lib/bluetooth )
 INCL=(); for p in "${SYS[@]}"; do INCL+=(--include "${p}"); done
 # restic läuft als Repo-Besitzer; die Dateien landen erst im Arbeitsordner und werden
 # dann von root an ihren Platz gelegt
@@ -134,6 +137,11 @@ if grep -qx "claude-code" "${INV}/sonstiges.txt" 2> /dev/null && [[ ! -x "${HOME
         || FEHLER+=("Claude Code")
 fi
 
+if grep -qx "rclone" "${INV}/sonstiges.txt" 2> /dev/null && ! command -v rclone > /dev/null; then
+    echo "rclone"   # unter Pop!_OS ohne Paket installiert; hier aus Ubuntus Paketquelle
+    apt-get install -y -qq rclone > /dev/null 2>&1 || FEHLER+=("rclone")
+fi
+
 schritt "3. VPN und WLAN"
 echo "netplan-Dateien: $(kopiere_fehlende "${S}/etc/netplan" /etc/netplan 600 root) neu"
 echo "NetworkManager:  $(kopiere_fehlende "${S}/etc/NetworkManager/system-connections" /etc/NetworkManager/system-connections 600 root) neu"
@@ -158,7 +166,76 @@ if [[ -f "${S}/etc/hosts" ]]; then
     done
 fi
 
-schritt "5. Backup-Dienst"
+schritt "5. System-Einstellungen (Grafik, Drucker, SSH, Bluetooth, FUSE)"
+ersetze() {  # ersetze <pfad ohne / vorn> <modus> <gruppe> — gesicherten Stand an die Stelle legen
+    local q="${S}/$1" z="/$1"
+    [[ -f "${q}" ]] || return 1
+    if [[ -e "${z}" ]]; then
+        cmp -s "${q}" "${z}" && return 0
+        cp -a "${z}" "${z}.neuinstallation"
+    fi
+    install -D -m "$2" -o root -g "$3" "${q}" "${z}"
+}
+# Grafik: amdgpu vor nvidia laden (sonst schwarzer Start mit HDMI-Monitor), Grafikmodus
+n="$(kopiere_fehlende "${S}/etc/modprobe.d" /etc/modprobe.d 644 root)"
+echo "Modul-Regeln: ${n} neu"
+if (( n > 0 )) && command -v update-initramfs > /dev/null; then
+    update-initramfs -u -k all > /dev/null 2>&1 || FEHLER+=("update-initramfs")
+fi
+MODUS="$(tr -d '[:space:]' < "${INV}/grafik.txt" 2> /dev/null)"
+if [[ "${MODUS}" =~ ^(nvidia|hybrid|integrated|compute)$ ]] && command -v system76-power > /dev/null; then
+    if [[ "$(system76-power graphics 2> /dev/null)" != "${MODUS}" ]]; then
+        system76-power graphics "${MODUS}" > /dev/null 2>&1 && echo "Grafikmodus: ${MODUS} (wirkt nach dem Neustart)" \
+            || FEHLER+=("Grafikmodus ${MODUS}")
+    else
+        echo "Grafikmodus: ${MODUS}"
+    fi
+fi
+# FUSE: user_allow_other
+ersetze etc/fuse.conf 644 root && echo "fuse.conf"
+# Drucker
+if [[ -f "${S}/etc/cups/printers.conf" ]] && [[ -d /etc/cups ]]; then
+    command -v systemctl > /dev/null && systemctl stop cups 2> /dev/null
+    ersetze etc/cups/printers.conf 600 lp
+    for f in "${S}"/etc/cups/ppd/*.ppd; do
+        [[ -f "${f}" ]] && install -D -m 640 -o root -g lp "${f}" "/etc/cups/ppd/$(basename "${f}")"
+    done
+    command -v systemctl > /dev/null && { systemctl start cups 2> /dev/null || FEHLER+=("CUPS startet nicht"); }
+    echo "Drucker: $(grep -c '^<Printer\|^<DefaultPrinter' /etc/cups/printers.conf) eingerichtet"
+fi
+# SSH-Server: Einstellungen und Host-Schlüssel (Gegenstellen sehen denselben Rechner)
+if [[ -f "${S}/etc/ssh/sshd_config" ]] && [[ -d /etc/ssh ]]; then
+    ersetze etc/ssh/sshd_config 644 root
+    for f in "${S}"/etc/ssh/sshd_config.d/*.conf; do
+        [[ -f "${f}" ]] && ersetze "etc/ssh/sshd_config.d/$(basename "${f}")" 644 root
+    done
+    for f in "${S}"/etc/ssh/ssh_host_*_key; do
+        [[ -f "${f}" ]] || continue
+        ersetze "etc/ssh/$(basename "${f}")" 600 root
+        ersetze "etc/ssh/$(basename "${f}").pub" 644 root
+    done
+    command -v systemctl > /dev/null && systemctl try-restart ssh.service 2> /dev/null
+    echo "SSH-Server: Einstellungen und Host-Schlüssel"
+fi
+# Bluetooth: gekoppelte Geräte (je Adapter; was die Neuinstallation schon kennt, bleibt)
+if [[ -d "${S}/var/lib/bluetooth" ]]; then
+    command -v systemctl > /dev/null && systemctl stop bluetooth 2> /dev/null
+    n=0
+    for adapter in "${S}"/var/lib/bluetooth/*/; do
+        a="/var/lib/bluetooth/$(basename "${adapter}")"
+        mkdir -p "${a}"
+        for geraet in "${adapter}"*; do
+            [[ -e "${geraet}" && ! -e "${a}/$(basename "${geraet}")" ]] || continue
+            cp -r "${geraet}" "${a}/" && n=$((n + 1))
+        done
+    done
+    chown -R root:root /var/lib/bluetooth
+    find /var/lib/bluetooth -type d -exec chmod 700 {} + ; find /var/lib/bluetooth -type f -exec chmod 600 {} +
+    command -v systemctl > /dev/null && systemctl start bluetooth 2> /dev/null
+    echo "Bluetooth: ${n} Einträge"
+fi
+
+schritt "6. Backup-Dienst"
 mkdir -p /etc/popos-backup && chmod 700 /etc/popos-backup
 kopiere_fehlende "${S}/etc/popos-backup" /etc/popos-backup 600 root > /dev/null
 [[ -e /etc/popos-backup/restic-passwort ]] || install -m600 "${ARBEIT}/pw" /etc/popos-backup/restic-passwort
@@ -170,7 +247,7 @@ if command -v systemctl > /dev/null; then
     systemctl daemon-reload && systemctl enable popos-backup.timer || FEHLER+=("Backup-Zeitplan nicht aktiviert")
 fi
 
-schritt "6. Einstellungen und Daten im Home"
+schritt "7. Einstellungen und Daten im Home"
 if [[ "${DATEN,,}" == n* ]]; then
     echo "Übersprungen (später: dieses Skript erneut starten)."
 else

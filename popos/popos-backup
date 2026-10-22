@@ -9,7 +9,12 @@
 #
 # Vor jeder Sicherung entsteht die Programmliste (inventar/): nur Pakete, die nach
 # der Installation von Pop!_OS ausdrücklich installiert wurden und noch da sind,
-# dazu die Flatpaks des Benutzers.
+# dazu die Flatpaks des Benutzers, der Grafikmodus und Programme ohne Paket.
+#
+# Gesichert wird das ganze Home ohne Neuladbares und die Systemteile, die nach einer
+# Neuinstallation fehlen würden (22.10.2026: nach Neuinstallation und Wiederherstellung
+# ein System wie vorher). Beide Listen stehen hier und nicht in backup.conf, damit eine
+# neue Fassung des Skripts auch auf einem schon eingerichteten Laptop wirkt.
 set -uo pipefail
 
 CONF=/etc/popos-backup/backup.conf
@@ -27,6 +32,37 @@ status() {  # status <ok|fehler> <text>
 source "${CONF}" || { status fehler "Einstellungen ${CONF} fehlen"; exit 1; }
 HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
 GID="$(id -g "${BENUTZER}")"
+
+# --- Was gesichert wird ---------------------------------------------------------
+# Home: alles außer dem, was sich neu laden lässt (relativ zum Home)
+HOME_AUSSCHLUESSE=(
+    .cache                                  # Zwischenspeicher, auch der von restic
+    .local/share/flatpak                    # Flatpak-Programme — kommen über die Programmliste
+    .local/share/containers                 # Podman-Images zum Testen, neu ladbar
+    .local/share/Trash
+    .local/share/Steam .steam
+    ".var/app/*/cache"
+    .var/app/com.valvesoftware.Steam
+    .var/app/ru.linux_gaming.PortProton
+)
+# System: was nach einer Neuinstallation fehlt
+SYSTEM_FEST=(
+    /etc/netplan /etc/NetworkManager                # VPN, WLAN
+    /etc/fstab /etc/hosts /root/.ssh                # Laufwerke, Storage-Box-Schlüssel
+    /etc/apt/sources.list.d /etc/apt/keyrings /usr/share/keyrings   # Fremdquellen
+    /etc/modprobe.d                                 # amdgpu vor nvidia (sonst schwarzer Start mit HDMI)
+    /etc/fuse.conf                                  # user_allow_other
+    /etc/cups/printers.conf /etc/cups/ppd           # Drucker
+    /etc/ssh                                        # SSH-Server: Einstellungen und Host-Schlüssel
+    /var/lib/bluetooth                              # gekoppelte Geräte
+    /etc/popos-backup /usr/local/sbin/popos-backup  # dieser Dienst
+    /etc/systemd/system/popos-backup.service /etc/systemd/system/popos-backup.timer
+    /var/lib/popos-backup/inventar
+)
+# Ältere backup.conf: HOME_PFADE gilt nicht mehr (ganzes Home); SYSTEM_PFADE und
+# AUSSCHLUESSE kommen zusätzlich dazu
+SYSTEM_PFADE=( "${SYSTEM_FEST[@]}" ${SYSTEM_PFADE[@]+"${SYSTEM_PFADE[@]}"} )
+AUSSCHLUESSE=( ${AUSSCHLUESSE[@]+"${AUSSCHLUESSE[@]}"} )
 
 als_benutzer() {  # restic als Benutzer, mit Leserecht auf alle Dateien
     setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
@@ -70,7 +106,14 @@ runuser -u "${BENUTZER}" -- env HOME="${HOMEDIR}" \
     flatpak list --user --app --columns=application,origin > "${INV}/flatpak-apps.txt" 2> /dev/null || true
 runuser -u "${BENUTZER}" -- env HOME="${HOMEDIR}" \
     flatpak remotes --user --columns=name,url > "${INV}/flatpak-quellen.txt" 2> /dev/null || true
-[[ -x "${HOMEDIR}/.local/bin/claude" ]] && echo "claude-code" > "${INV}/sonstiges.txt" || : > "${INV}/sonstiges.txt"
+# Programme ohne apt-Paket, die die Wiederherstellung neu holt
+: > "${INV}/sonstiges.txt"
+[[ -x "${HOMEDIR}/.local/bin/claude" ]] && echo "claude-code" >> "${INV}/sonstiges.txt"
+if command -v rclone > /dev/null && ! dpkg -S "$(command -v rclone)" > /dev/null 2>&1; then
+    echo "rclone" >> "${INV}/sonstiges.txt"
+fi
+# Grafikmodus von system76-power (nvidia, hybrid, integrated)
+command -v system76-power > /dev/null && system76-power graphics > "${INV}/grafik.txt" 2> /dev/null || : > "${INV}/grafik.txt"
 echo "Programmliste: $(wc -l < "${INV}/apt-pakete.txt") Pakete, $(wc -l < "${INV}/flatpak-apps.txt") Flatpaks"
 
 # --- TrueNAS ------------------------------------------------------------------
@@ -81,13 +124,13 @@ if ! mountpoint -q "${EINHAENGEPUNKT}"; then
 fi
 
 # --- Sicherung ----------------------------------------------------------------
-PFADE=()
-for p in "${HOME_PFADE[@]}"; do [[ -e "${HOMEDIR}/${p}" ]] && PFADE+=("${HOMEDIR}/${p}"); done
+PFADE=("${HOMEDIR}")
 for p in "${SYSTEM_PFADE[@]}"; do [[ -e "${p}" ]] && PFADE+=("${p}"); done
 # Von netplan erzeugte NetworkManager-Dateien (VPN, WLAN) — damit Pavlonya OS sie
 # übernehmen kann; Pop!_OS selbst stellt aus /etc/netplan wieder her
 [[ -d /run/NetworkManager/system-connections ]] && PFADE+=(/run/NetworkManager/system-connections)
 EXCL=()
+for e in "${HOME_AUSSCHLUESSE[@]}"; do EXCL+=(--exclude "${HOMEDIR}/${e}"); done
 for e in "${AUSSCHLUESSE[@]}"; do EXCL+=(--exclude "${e}"); done
 
 als_benutzer restic backup --host "${HOST}" "${EXCL[@]}" "${PFADE[@]}"

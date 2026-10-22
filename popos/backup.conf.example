@@ -12,30 +12,10 @@ PASSWORT_DATEI="/etc/popos-backup/restic-passwort"
 HOST="pop-os"
 BENUTZER="arikushi"
 
-# Home-Ordner (relativ zum Home), wie im bisherigen Skript
-HOME_PFADE=(
-    Dokumente Bilder Schreibtisch Videos Musik
-    .ssh .gnupg .config .var/app .bashrc .profile .thunderbird .vscode
-    private.key public.key
-    .local/share/keyrings .local/share/applications .local/share/color-schemes
-    .local/share/Cryptomator .local/share/onlyoffice .pki
-)
-
-# Systempfade: Netz/VPN (netplan), Laufwerke, Storage-Box-Schlüssel, Fremdquellen,
-# der Backup-Dienst selbst und die Programmliste
-SYSTEM_PFADE=(
-    /etc/netplan /etc/NetworkManager /etc/fstab /etc/hosts /root/.ssh
-    /etc/apt/sources.list.d /etc/apt/keyrings /usr/share/keyrings
-    /etc/popos-backup /usr/local/sbin/popos-backup
-    /etc/systemd/system/popos-backup.service /etc/systemd/system/popos-backup.timer
-    /var/lib/popos-backup/inventar
-)
-
-AUSSCHLUESSE=(
-    "*/.var/app/*/cache"
-    "*/.var/app/com.valvesoftware.Steam"
-    "*/.var/app/ru.linux_gaming.PortProton"
-)
+# Was gesichert wird (ganzes Home ohne Neuladbares, dazu die nötigen Systemteile),
+# steht im Skript popos-backup. Hier nur, was zusätzlich dazukommen bzw. wegbleiben soll:
+SYSTEM_PFADE=()
+AUSSCHLUESSE=()
 
 # Pakete, die nicht in die Programmliste kommen (13.10.2026)
 PAKETE_AUSSCHLIESSEN=( grub-pc-bin grub2-common )

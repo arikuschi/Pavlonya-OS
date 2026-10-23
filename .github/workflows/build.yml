@@ -66,6 +66,7 @@ jobs:
             rpm -q nss-mdns && grep -Eq "^hosts:.*mdns4_minimal" /etc/nsswitch.conf
             ssh-keygen -A >/dev/null && sshd -T | grep -qi "^permitrootlogin no"
             test -x /usr/libexec/pavlonya-ersteinrichtung && rpm -q zenity gnome-disk-utility gparted
+            grep -q "@NVIDIA_GPU_UUID@" /usr/share/pavlonya-os/minimon/gpus && ! grep -Eq "GPU-[0-9a-f]{8}-" /usr/share/pavlonya-os/minimon/gpus && test -x /usr/sbin/nvidia-smi
             test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup
             grep -q "\.config/tabby" /usr/bin/pavlonya-wiederherstellen
             test "$(grep -c distrobox-fontconfig.conf /usr/share/pavlonya-os/distrobox.ini)" -eq 2

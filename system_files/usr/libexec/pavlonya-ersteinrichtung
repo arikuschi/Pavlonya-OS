@@ -45,6 +45,13 @@ MINIMON="${XDG_CONFIG_HOME:-$HOME/.config}/cosmic/io.github.cosmic_utils.minimon
 if [[ ! -d "${MINIMON}" ]]; then
     mkdir -p "${MINIMON}"
     cp /usr/share/pavlonya-os/minimon/* "${MINIMON}/"
+    # Minimon führt die NVIDIA-Karte unter ihrer eindeutigen Kennung. Die gehört nicht
+    # ins öffentliche Repo (23.10.2026) und wird erst hier eingesetzt.
+    NVSMI="$(command -v nvidia-smi || echo /usr/sbin/nvidia-smi)"
+    GPU_UUID="$("${NVSMI}" --query-gpu=uuid --format=csv,noheader 2> /dev/null | head -1)"
+    if [[ "${GPU_UUID}" =~ ^GPU-[0-9a-f-]+$ ]]; then
+        sed -i "s/@NVIDIA_GPU_UUID@/${GPU_UUID}/" "${MINIMON}/gpus"
+    fi
 fi
 
 # Aussehen wie Pop!_OS (Leiste, Dock, Farbschema) EINMAL aktiv übernehmen.

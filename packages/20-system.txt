@@ -21,6 +21,10 @@ seahorse                    # Schlüsselbund verwalten (Kennwort ändern, Eintr�
 gnome-keyring-pam           # entsperrt den Schlüsselbund beim Anmelden — ohne fragen
                             # Apps ständig nach einem Schlüsselbund-Kennwort (VM-Test 11.10.2026)
 xdg-user-dirs
+plymouth                    # Startbild mit Logo und Fortschrittsbalken (Wunsch 24.10.2026);
+plymouth-plugin-script      # eigenes Design: /usr/share/plymouth/themes/pavlonya
+plymouth-scripts            # plymouth-set-default-theme
+generic-logos               # Plymouth verlangt ein Logo-Paket; neutral statt fedora-logos (halb so groß)
 nss-mdns                    # löst .local-Namen auf (Drucker BRN….local); ohne es scheitert das
                             # Einrichten im Druckerdialog (fehlte seit dem Bau ohne Empfehlungen, 21.10.2026)
 

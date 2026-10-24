@@ -18,6 +18,11 @@ FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS keyring
 COPY keyring /keyring
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /keyring/build.sh
 
+# Bilder des Startbilds rendern (Grund: startbild/build.sh)
+FROM quay.io/fedora/fedora:${FEDORA_VERSION} AS startbild
+COPY startbild /startbild
+RUN --mount=type=cache,dst=/var/cache/libdnf5 /startbild/build.sh
+
 FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION}
 
 ARG FEDORA_VERSION
@@ -30,6 +35,7 @@ COPY system_files /system_files
 COPY keys /keys
 COPY --from=nvidia / /tmp/nvidia
 COPY --from=keyring /out /tmp/keyring
+COPY --from=startbild /out /tmp/startbild
 
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/10-repos.sh
 RUN --mount=type=cache,dst=/var/cache/libdnf5 /build_files/20-kernel-nvidia.sh

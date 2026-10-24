@@ -1,0 +1,3 @@
+# Startbild (Plymouth) zeigen und Kernelmeldungen ausblenden (24.10.2026).
+# bootc übernimmt geänderte kargs.d beim nächsten Update.
+kargs = ["rhgb", "quiet"]

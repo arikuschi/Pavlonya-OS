@@ -35,7 +35,7 @@ cat /usr/lib/os-release
 
 # --- Startbild (Plymouth) -----------------------------------------------------
 # Logo mit Schriftzug und Fortschrittsbalken (Wunsch 24.10.2026). Die Bilder rendert
-# die Baustufe „startbild“; Design-Datei und Skript liegen in system_files. Muss vor
+# die Baustufe „startbild“; die Design-Datei (two-step) liegt in system_files. Muss vor
 # 60-initramfs.sh stehen: dracut nimmt das eingestellte Design in die initramfs auf.
 # Angezeigt wird es mit den Kernel-Parametern aus /usr/lib/bootc/kargs.d.
 install -m644 /tmp/startbild/*.png /usr/share/plymouth/themes/pavlonya/
@@ -120,7 +120,7 @@ grep -q '^NAME="Pavlonya OS"$' /etc/os-release
 grep -q '^ID=fedora$' /etc/os-release
 grep -q '^VERSION_ID=' /etc/os-release
 test -f /usr/share/pixmaps/pavlonya-os.svg
-for f in pavlonya.plymouth pavlonya.script startbild.png balken-hinten.png balken-vorne.png; do
+for f in pavlonya.plymouth watermark.png entry.png bullet.png lock.png; do
     test -s "/usr/share/plymouth/themes/pavlonya/${f}"
 done
 grep -q '"rhgb"' /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml

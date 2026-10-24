@@ -17,7 +17,7 @@ dracut --no-hostonly --kver "${KVER}" --reproducible --zstd -v --add ostree \
 # sonst bleibt der HDMI-Ausgang (hängt an der NVIDIA) beim Start schwarz.
 INITRD="$(lsinitrd "/usr/lib/modules/${KVER}/initramfs.img")"
 # Startbild: ohne Design in der initramfs zeigt Plymouth beim Start nur Text
-for f in pavlonya.script startbild.png; do
+for f in pavlonya.plymouth watermark.png entry.png; do
     if grep -q "themes/pavlonya/${f}" <<< "${INITRD}"; then
         echo "OK: Startbild ${f} in der initramfs"
     else

@@ -22,7 +22,7 @@ gnome-keyring-pam           # entsperrt den Schlüsselbund beim Anmelden — ohn
                             # Apps ständig nach einem Schlüsselbund-Kennwort (VM-Test 11.10.2026)
 xdg-user-dirs
 plymouth                    # Startbild mit Logo und Fortschrittsbalken (Wunsch 24.10.2026);
-plymouth-plugin-script      # eigenes Design: /usr/share/plymouth/themes/pavlonya
+plymouth-plugin-two-step    # Design „pavlonya“ (/usr/share/plymouth/themes/pavlonya), wie Fedora und Pop!_OS
 plymouth-scripts            # plymouth-set-default-theme
 generic-logos               # Plymouth verlangt ein Logo-Paket; neutral statt fedora-logos (halb so groß)
 nss-mdns                    # löst .local-Namen auf (Drucker BRN….local); ohne es scheitert das

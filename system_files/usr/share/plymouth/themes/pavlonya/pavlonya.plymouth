@@ -1,8 +1,58 @@
 [Plymouth Theme]
 Name=Pavlonya OS
-Description=Logo „Ring-P“ mit Schriftzug, darunter ein Fortschrittsbalken
-ModuleName=script
+Description=Logo „Ring-P“ mit Schriftzug und Fortschrittsbalken
+ModuleName=two-step
 
-[script]
+# two-step wie Fedora und Pop!_OS: zeichnet je Bildschirm einzeln, mittig. Ein
+# eigenes Skript (script-Modul) rechnete nur für einen Bildschirm und landete bei
+# Laptop-Display plus 4K-Monitor auf beiden daneben (24.10.2026).
+[two-step]
+Font=Sans 12
+TitleFont=Sans 20
 ImageDir=/usr/share/plymouth/themes/pavlonya
-ScriptFile=/usr/share/plymouth/themes/pavlonya/pavlonya.script
+DialogHorizontalAlignment=.5
+DialogVerticalAlignment=.5
+TitleHorizontalAlignment=.5
+TitleVerticalAlignment=.382
+HorizontalAlignment=.5
+VerticalAlignment=.75
+WatermarkHorizontalAlignment=.5
+WatermarkVerticalAlignment=.42
+Transition=none
+TransitionDuration=0.0
+BackgroundStartColor=0x000000
+BackgroundEndColor=0x000000
+ProgressBarBackgroundColor=0x2b2b2b
+ProgressBarForegroundColor=0x3cc6d6
+ProgressBarHorizontalAlignment=.5
+ProgressBarVerticalAlignment=.66
+ProgressBarWidth=320
+ProgressBarHeight=6
+MessageBelowAnimation=true
+
+[boot-up]
+UseEndAnimation=false
+UseFirmwareBackground=false
+UseProgressBar=true
+
+[shutdown]
+UseEndAnimation=false
+UseFirmwareBackground=false
+
+[reboot]
+UseEndAnimation=false
+UseFirmwareBackground=false
+
+[updates]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Updates werden installiert …
+SubTitle=Bitte nicht ausschalten
+
+[system-upgrade]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=System wird aktualisiert …
+SubTitle=Bitte nicht ausschalten

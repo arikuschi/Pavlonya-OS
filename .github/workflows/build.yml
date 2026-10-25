@@ -59,6 +59,7 @@ jobs:
             cat /usr/lib/pavlonya-os-release
             rpm -q cosmic-session kmod-nvidia nvidia-driver steam code openssh-server gnome-keyring-pam
             test -f /usr/share/wayland-sessions/cosmic.desktop
+            grep -qx "Exec=/usr/libexec/pavlonya-cosmic-starten" /usr/share/wayland-sessions/cosmic.desktop && test -x /usr/libexec/pavlonya-cosmic-starten && test -x /usr/bin/start-cosmic
             rpm -q plymouth plymouth-plugin-two-step && test "$(plymouth-set-default-theme)" = pavlonya && test -s /usr/share/plymouth/themes/pavlonya/watermark.png && grep -q rhgb /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml
             nicht rpm -q fedora-logos
             for v in /usr/lib/efi/shim/*/EFI/fedora; do test -s "$v/shimx64.efi"; nicht test -e "$v/shim.efi"; iconv -f UTF-16LE -t UTF-8 "$v/BOOTX64.CSV" | grep -q ",Pavlonya OS,"; done

@@ -42,6 +42,24 @@ install -m644 /tmp/startbild/*.png /usr/share/plymouth/themes/pavlonya/
 plymouth-set-default-theme pavlonya
 test "$(plymouth-set-default-theme)" = pavlonya
 
+# --- Firmware-Startmenü (F12) ----------------------------------------------------
+# Die Acer-Firmware (Insyde) kennt \EFI\fedora\shim.efi und legt dafür bei jedem
+# Start selbst einen Eintrag „Fedora“ an, sogar an erster Stelle — auch wenn er
+# gelöscht wurde (25.10.2026, erkennbar an der Kennung „RC“ im Eintrag). shim.efi
+# ist nur eine Kopie von shimx64.efi, den der Eintrag „Pavlonya OS“ nutzt; ohne sie
+# legt bootupd sie bei Updates nicht wieder auf die EFI-Partition.
+# BOOTX64.CSV benennt den Eintrag, den shim auf dem Notweg (\EFI\BOOT) anlegt.
+for v in /usr/lib/efi/shim/*/EFI/fedora; do
+    rm -f "${v}/shim.efi"
+    iconv -f UTF-16LE -t UTF-8 "${v}/BOOTX64.CSV" \
+        | sed 's/,Fedora,,This is the boot entry for Fedora/,Pavlonya OS,,This is the boot entry for Pavlonya OS/' \
+        | iconv -f UTF-8 -t UTF-16LE > "${v}/BOOTX64.CSV.neu"
+    mv "${v}/BOOTX64.CSV.neu" "${v}/BOOTX64.CSV"
+    iconv -f UTF-16LE -t UTF-8 "${v}/BOOTX64.CSV"
+    iconv -f UTF-16LE -t UTF-8 "${v}/BOOTX64.CSV" | grep -q ',Pavlonya OS,'
+    test -s "${v}/shimx64.efi" && test ! -e "${v}/shim.efi"
+done
+
 # --- Signaturprüfung für eigene Updates --------------------------------------
 # Ohne öffentlichen Schlüssel bleibt die Prüfung aus (lokaler Testbau).
 # policy.json: Grundregel „annehmen“ (Distrobox, Podman), für das eigene Image

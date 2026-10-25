@@ -63,6 +63,7 @@ jobs:
             grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
             test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service
             rpm -q upower
+            grep -q "^ExecStartPre=/usr/bin/sleep 2" /usr/lib/systemd/system/cosmic-greeter.service.d/10-pavlonya-warten.conf
             grep -q PAVLONYA_FLATPAK_OHNE_KENNWORT /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules && ! grep -q "\"org.freedesktop.Flatpak.configure-remote\"" /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules
             rpm -q nss-mdns && grep -Eq "^hosts:.*mdns4_minimal" /etc/nsswitch.conf
             ssh-keygen -A >/dev/null && sshd -T | grep -qi "^permitrootlogin no"

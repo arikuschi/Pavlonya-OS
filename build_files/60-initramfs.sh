@@ -25,6 +25,9 @@ for f in pavlonya.plymouth watermark.png entry.png; do
         exit 1
     fi
 done
+# Ladereihenfolge amdgpu vor nvidia muss auch in der initramfs gelten
+grep -q "usr/lib/modprobe.d/pavlonya-grafik.conf" <<< "${INITRD}" || {
+    echo "FEHLER: pavlonya-grafik.conf fehlt in der initramfs" >&2; exit 1; }
 for mod in nvidia amdgpu; do
     if grep -qE "/${mod}\.ko" <<< "${INITRD}"; then
         echo "OK: ${mod} in der initramfs"

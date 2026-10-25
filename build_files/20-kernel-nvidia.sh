@@ -75,8 +75,19 @@ if [[ "${KMOD}" != "${DRV}" || "${DRV}" != "${LIB32}" ]]; then
     exit 1
 fi
 
-# NVIDIA und amdgpu früh laden; sonst schwarzer Bildschirm am HDMI (hängt an der dGPU)
-if [[ -f /usr/lib/dracut/dracut.conf.d/99-nvidia.conf ]]; then
-    sed -i 's@omit_drivers@force_drivers@g; s@ nvidia @ amdgpu nvidia @g' \
-        /usr/lib/dracut/dracut.conf.d/99-nvidia.conf
+# NVIDIA und amdgpu in die initramfs mitnehmen (sonst bleibt der HDMI-Ausgang an
+# der dGPU beim Start schwarz), aber NICHT erzwingen (25.10.2026): erzwungene
+# Treiber lädt dracut nacheinander vor allem anderen — der NVIDIA-Treiber braucht
+# gut 7 s, das Startbild erschien erst danach. Mitgenommen lädt udev sie nebenher,
+# Plymouth zeichnet sofort über den Bildspeicher der Firmware (simpledrm), wie
+# Pop!_OS über efifb. Reihenfolge amdgpu vor nvidia: modprobe.d/pavlonya-grafik.conf.
+NVCONF=/usr/lib/dracut/dracut.conf.d/99-nvidia.conf
+if [[ -f "${NVCONF}" ]]; then
+    sed -i 's@omit_drivers@add_drivers@g; s@force_drivers@add_drivers@g; s@ nvidia @ amdgpu nvidia @g' "${NVCONF}"
+    cat "${NVCONF}"
+    grep -q 'add_drivers.* amdgpu nvidia ' "${NVCONF}"
+    if grep -Eq 'force_drivers|omit_drivers' "${NVCONF}"; then
+        echo "FEHLER: ${NVCONF} erzwingt oder unterdrückt noch Treiber" >&2
+        exit 1
+    fi
 fi

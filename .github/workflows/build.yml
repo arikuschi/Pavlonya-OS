@@ -54,26 +54,31 @@ jobs:
       - name: Rauchtest
         run: |
           sudo podman run --rm "${IMAGE_NAME}:build" bash -euxc '
+            # "! befehl" bricht unter set -e nie ab — Verneinungen deshalb über nicht()
+            nicht() { if "$@"; then echo "FEHLER: darf nicht zutreffen: $*" >&2; exit 1; fi; }
             cat /usr/lib/pavlonya-os-release
             rpm -q cosmic-session kmod-nvidia nvidia-driver steam code openssh-server gnome-keyring-pam
             test -f /usr/share/wayland-sessions/cosmic.desktop
-            rpm -q plymouth plymouth-plugin-two-step && test "$(plymouth-set-default-theme)" = pavlonya && test -s /usr/share/plymouth/themes/pavlonya/watermark.png && grep -q rhgb /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml && ! rpm -q fedora-logos
+            rpm -q plymouth plymouth-plugin-two-step && test "$(plymouth-set-default-theme)" = pavlonya && test -s /usr/share/plymouth/themes/pavlonya/watermark.png && grep -q rhgb /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml
+            nicht rpm -q fedora-logos
             grep -q "numlock_state: BootOn" /usr/share/cosmic/com.system76.CosmicComp/v1/keyboard_config
             test -x /usr/lib/opt/Tabby/tabby || test -x /opt/Tabby/tabby
             grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
             test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service
             rpm -q upower
             grep -q "^ExecStartPre=/usr/bin/sleep 2" /usr/lib/systemd/system/cosmic-greeter.service.d/10-pavlonya-warten.conf
-            grep -q PAVLONYA_FLATPAK_OHNE_KENNWORT /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules && ! grep -q "\"org.freedesktop.Flatpak.configure-remote\"" /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules
+            grep -q PAVLONYA_FLATPAK_OHNE_KENNWORT /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules
+            nicht grep -q "\"org.freedesktop.Flatpak.configure-remote\"" /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules
             rpm -q nss-mdns && grep -Eq "^hosts:.*mdns4_minimal" /etc/nsswitch.conf
             ssh-keygen -A >/dev/null && sshd -T | grep -qi "^permitrootlogin no"
             test -x /usr/libexec/pavlonya-ersteinrichtung && rpm -q zenity gnome-disk-utility gparted
-            grep -q "@NVIDIA_GPU_UUID@" /usr/share/pavlonya-os/minimon/gpus && ! grep -Eq "GPU-[0-9a-f]{8}-" /usr/share/pavlonya-os/minimon/gpus && test -x /usr/sbin/nvidia-smi
+            grep -q "@NVIDIA_GPU_UUID@" /usr/share/pavlonya-os/minimon/gpus && test -x /usr/sbin/nvidia-smi
+            nicht grep -Eq "GPU-[0-9a-f]{8}-" /usr/share/pavlonya-os/minimon/gpus
             test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup
             grep -q "\.config/tabby" /usr/bin/pavlonya-wiederherstellen
             test "$(grep -c distrobox-fontconfig.conf /usr/share/pavlonya-os/distrobox.ini)" -eq 2
-            ! FONTCONFIG_FILE=/usr/share/pavlonya-os/distrobox-fontconfig.conf fc-list 2>&1 | grep -q "Fontconfig error"
-            ! rpm -q gdm gnome-shell mutter rygel breeze-icon-theme localsearch python3-botocore toolbox ModemManager atheros-firmware > /dev/null   # nichts Ungenutztes (keine Empfehlungen)
+            nicht grep -q "Fontconfig error" <<< "$(FONTCONFIG_FILE=/usr/share/pavlonya-os/distrobox-fontconfig.conf fc-list 2>&1)"
+            for p in gdm gnome-shell mutter rygel breeze-icon-theme localsearch python3-botocore toolbox ModemManager atheros-firmware; do nicht rpm -q "$p" > /dev/null; done   # nichts Ungenutztes (keine Empfehlungen)
             grep -q "^ghcr.io/" /usr/share/pavlonya-os/image-ref
             grep -q "^PRETTY_NAME=\"Pavlonya OS " /etc/os-release && grep -q "^ID=fedora$" /etc/os-release
             test -f /usr/share/icons/hicolor/scalable/apps/pavlonya-os.svg

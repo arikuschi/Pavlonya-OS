@@ -36,3 +36,13 @@ for mod in nvidia amdgpu; do
         exit 1
     fi
 done
+# Fremde Grafiktreiber machen die initramfs ~110 MB größer und GRUB ~4 s langsamer
+# (dracut.conf.d/90-pavlonya-grafik.conf)
+for mod in i915 xe nouveau radeon; do
+    if grep -qE "/${mod}\.ko" <<< "${INITRD}"; then
+        echo "FEHLER: ${mod} ist in der initramfs" >&2
+        exit 1
+    fi
+    echo "OK: ${mod} nicht in der initramfs"
+done
+head -1 <<< "${INITRD}"

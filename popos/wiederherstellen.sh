@@ -75,7 +75,8 @@ SNAP="$(als_benutzer restic snapshots --host "${HOST}" --latest 1 --compact 2> /
 [[ -n "${SNAP}" ]] || { echo "Keine Sicherung von ${HOST} gefunden."; exit 1; }
 echo "Letzte Sicherung: ${SNAP}"
 
-SYS=( /etc/netplan /etc/fstab /etc/hosts /root/.ssh /etc/apt/sources.list.d /etc/apt/keyrings
+SYS=( /etc/netplan /etc/NetworkManager /var/lib/systemd/linger
+      /etc/fstab /etc/hosts /root/.ssh /etc/apt/sources.list.d /etc/apt/keyrings
       /usr/share/keyrings /etc/popos-backup /usr/local/sbin/popos-backup
       /etc/systemd/system/popos-backup.service /etc/systemd/system/popos-backup.timer
       /var/lib/popos-backup/inventar
@@ -234,6 +235,13 @@ if [[ -d "${S}/var/lib/bluetooth" ]]; then
     command -v systemctl > /dev/null && systemctl start bluetooth 2> /dev/null
     echo "Bluetooth: ${n} Einträge"
 fi
+
+# Benutzer-Timer auch ohne Anmeldung (z. B. Forgejo-Dump abholen): loginctl enable-linger
+for f in "${S}"/var/lib/systemd/linger/*; do
+    [[ -e "${f}" ]] || continue
+    loginctl enable-linger "$(basename "${f}")" 2> /dev/null && echo "Linger: $(basename "${f}")" \
+        || FEHLER+=("loginctl enable-linger $(basename "${f}")")
+done
 
 schritt "6. Backup-Dienst"
 mkdir -p /etc/popos-backup && chmod 700 /etc/popos-backup

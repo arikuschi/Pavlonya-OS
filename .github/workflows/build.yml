@@ -59,6 +59,7 @@ jobs:
             cat /usr/lib/pavlonya-os-release
             rpm -q cosmic-session kmod-nvidia nvidia-driver steam code openssh-server gnome-keyring-pam
             test -f /usr/share/wayland-sessions/cosmic.desktop
+            grep -qx "Exec=/usr/libexec/pavlonya-cosmic-starten" /usr/share/wayland-sessions/cosmic.desktop && test -x /usr/libexec/pavlonya-cosmic-starten && test -x /usr/bin/start-cosmic
             rpm -q plymouth plymouth-plugin-two-step && test "$(plymouth-set-default-theme)" = pavlonya && test -s /usr/share/plymouth/themes/pavlonya/watermark.png && grep -q rhgb /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml
             nicht rpm -q fedora-logos
             for v in /usr/lib/efi/shim/*/EFI/fedora; do test -s "$v/shimx64.efi"; nicht test -e "$v/shim.efi"; iconv -f UTF-16LE -t UTF-8 "$v/BOOTX64.CSV" | grep -q ",Pavlonya OS,"; done
@@ -67,7 +68,9 @@ jobs:
             grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
             test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service
             rpm -q upower
-            grep -q "^ExecStartPre=/usr/bin/sleep 2" /usr/lib/systemd/system/cosmic-greeter.service.d/10-pavlonya-warten.conf
+            grep -q "pgrep -x plymouthd" /usr/lib/systemd/system/cosmic-greeter.service.d/10-pavlonya-plymouth-ende.conf && nicht test -e /usr/lib/systemd/system/cosmic-greeter.service.d/10-pavlonya-warten.conf
+            grep -qx "ExecStart=-/usr/bin/plymouth quit --retain-splash" /usr/lib/systemd/system/plymouth-quit.service.d/10-pavlonya-logo-behalten.conf && grep -q quiet /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml
+            test -x /usr/bin/pgrep && test -x /usr/bin/timeout && test -x /usr/bin/loginctl
             grep -q PAVLONYA_FLATPAK_OHNE_KENNWORT /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules
             nicht grep -q "\"org.freedesktop.Flatpak.configure-remote\"" /usr/share/polkit-1/rules.d/50-pavlonya-flatpak.rules
             rpm -q nss-mdns && grep -Eq "^hosts:.*mdns4_minimal" /etc/nsswitch.conf

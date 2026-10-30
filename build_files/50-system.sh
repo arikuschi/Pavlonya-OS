@@ -42,6 +42,15 @@ install -m644 /tmp/startbild/*.png /usr/share/plymouth/themes/pavlonya/
 plymouth-set-default-theme pavlonya
 test "$(plymouth-set-default-theme)" = pavlonya
 
+# --- Sitzung erst nach dem Anmeldebildschirm ------------------------------------
+# COSMIC startet über pavlonya-cosmic-starten: wartet, bis der Anmeldebildschirm
+# bei logind abgemeldet ist, sonst bleibt manchmal das Laptop-Display dunkel
+# (Grund im Skript, 25.10.2026).
+sed -i 's@^Exec=/usr/bin/start-cosmic$@Exec=/usr/libexec/pavlonya-cosmic-starten@' \
+    /usr/share/wayland-sessions/cosmic.desktop
+grep -qx 'Exec=/usr/libexec/pavlonya-cosmic-starten' /usr/share/wayland-sessions/cosmic.desktop
+test -x /usr/libexec/pavlonya-cosmic-starten
+
 # --- Firmware-Startmenü (F12) ----------------------------------------------------
 # Die Acer-Firmware (Insyde) kennt \EFI\fedora\shim.efi und legt dafür bei jedem
 # Start selbst einen Eintrag „Fedora“ an, sogar an erster Stelle — auch wenn er

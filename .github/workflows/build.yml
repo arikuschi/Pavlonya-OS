@@ -80,6 +80,8 @@ jobs:
             test "$(grep -c distrobox-fontconfig.conf /usr/share/pavlonya-os/distrobox.ini)" -eq 2
             nicht grep -q "Fontconfig error" <<< "$(FONTCONFIG_FILE=/usr/share/pavlonya-os/distrobox-fontconfig.conf fc-list 2>&1)"
             for p in gdm gnome-shell mutter rygel breeze-icon-theme localsearch python3-botocore toolbox ModemManager atheros-firmware; do nicht rpm -q "$p" > /dev/null; done   # nichts Ungenutztes (keine Empfehlungen)
+            for p in nvidia-gpu-firmware microcode_ctl qemu-user-static qemu-user-static-aarch64 default-fonts-cjk google-noto-sans-cjk-vf-fonts xorg-x11-nvidia nvidia-xconfig NetworkManager-cloud-setup; do nicht rpm -q "$p" > /dev/null; done   # Prüfung gegen die Hardware 30.10.2026
+            rpm -q default-fonts-core default-fonts-other amd-ucode-firmware mt7xxx-firmware linux-firmware && nicht compgen -G "/usr/lib/firmware/nvidia/*/*tu10x*"
             grep -q "^ghcr.io/" /usr/share/pavlonya-os/image-ref
             grep -q "^PRETTY_NAME=\"Pavlonya OS " /etc/os-release && grep -q "^ID=fedora$" /etc/os-release
             test -f /usr/share/icons/hicolor/scalable/apps/pavlonya-os.svg

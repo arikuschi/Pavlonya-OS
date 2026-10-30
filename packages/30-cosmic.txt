@@ -33,7 +33,8 @@ qt6-qtwayland
 wl-clipboard
 zenity                      # Fortschrittsfenster der Ersteinrichtung
 
-default-fonts
+default-fonts-core          # Standardschriften ohne CJK (default-fonts zöge
+default-fonts-other         # 122 MB chinesische/japanische/koreanische mit, 30.10.2026)
 google-noto-color-emoji-fonts
 adw-gtk3-theme
 

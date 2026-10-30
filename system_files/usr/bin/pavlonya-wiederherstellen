@@ -2,17 +2,20 @@
 # pavlonya-wiederherstellen — Gerätedaten nach einer Neuinstallation aus dem
 # restic-Backup auf der TrueNAS zurückholen (13.10.2026).
 #
-# Holt aus der letzten Sicherung:
+# Holt aus der letzten Sicherung von pavlonya-os (gibt es keine: pop-os):
 #   - VPN-Verbindungen     /etc/NetworkManager/system-connections/
 #   - Backup-Einstellungen /etc/pavlonya-os/ (backup.conf, restic-passwort)
 #   - SSH-Schlüssel        ~/.ssh
 #   - Storage Box          sshfs-Zeilen aus /etc/fstab, SSH-Dateien von root
-#   - Cryptomator          Tresorliste, wenn hier noch keiner eingetragen ist
 # Vorhandene Dateien werden NICHT überschrieben.
 #
-# Danach auf Wunsch: Programm-Einstellungen aus der letzten Pop!_OS-Sicherung —
-# nur die Programme aus PROGRAMM_EINSTELLUNGEN unten, ohne Schlüsselbund. Diese
-# werden ÜBERSCHRIEBEN; die Programme müssen dafür geschlossen sein.
+# Beim Umzug von Pop!_OS (Frage „Auch aus Pop!_OS übernehmen?“ → J), alles aus
+# EINER Pop!_OS-Sicherung (der neuesten):
+#   - Storage Box und Cryptomator-Tresorliste
+#   - Programm-Einstellungen (PROGRAMM_EINSTELLUNGEN unten), ohne Schlüsselbund
+#   - Daten und persönliche Einstellungen (DATEN unten), ohne Müll von Pop!_OS
+# Programm-Einstellungen und Daten werden ÜBERSCHRIEBEN; die Programme müssen dafür
+# geschlossen sein.
 #
 # Aufruf:  sudo pavlonya-wiederherstellen [--host pavlonya-os|pop-os]
 # Fragt nach der TrueNAS-Adresse (Vault: „Homelab Pavlonya") und dem
@@ -44,7 +47,7 @@ echo "=== Pavlonya OS — Gerätedaten wiederherstellen (Benutzer ${BENUTZER}) =
 read -rp "TrueNAS-Adresse (IP, steht im Vault unter „Homelab Pavlonya“): " NAS
 read -rsp "restic-Kennwort (Bitwarden): " PASSWORT; echo
 echo "Sonst kommt alles aus der Sicherung von Pavlonya OS. Nur beim Umzug von Pop!_OS:"
-read -rp "Auch aus Pop!_OS übernehmen (Programm-Einstellungen, Storage Box, Cryptomator)? [J/n] " PROGRAMME
+read -rp "Auch aus Pop!_OS übernehmen (Daten, Programm-Einstellungen, Storage Box, Cryptomator)? [J/n] " PROGRAMME
 
 GID="$(id -g "${BENUTZER}")"
 ARBEIT="$(mktemp -d /var/tmp/pavlonya-wiederherstellen.XXXX)"
@@ -93,6 +96,20 @@ else
     exit 1
 fi
 echo "Hole aus der letzten Sicherung von „${HOST}“ …"
+
+# Umzug: alles aus EINER Pop!_OS-Sicherung — Obsidian-Vault und Obsidian-Einstellungen
+# (lokale LiveSync-Datenbank) müssen zusammenpassen (geprüft 22.10.2026)
+POP_SNAP=""
+if [[ "${PROGRAMME,,}" != n* ]]; then
+    POP_SNAP="$(restic snapshots --host pop-os --latest 1 --json 2> /dev/null \
+        | grep -o '"short_id":"[^"]*"' | head -1 | cut -d'"' -f4)"
+    if [[ -n "${POP_SNAP}" ]]; then
+        echo "Pop!_OS-Sicherung für den Umzug: ${POP_SNAP}"
+    else
+        echo "Keine Pop!_OS-Sicherung gefunden — Umzugsteil entfällt."
+        PROGRAMME=n
+    fi
+fi
 
 # Home liegt unter Pop!_OS in /home, unter Pavlonya OS in /var/home
 INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" --include /run/NetworkManager/system-connections
@@ -187,8 +204,8 @@ ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
 # Quelle ist die Sicherung von Pavlonya OS; aus Pop!_OS nur beim Umzug (Frage oben)
 # — beide Wege bleiben getrennt (Sergej, 30.10.2026).
 WURZELN=("${ARBEIT}/r")
-if [[ "${PROGRAMME,,}" != n* && "${HOST}" != pop-os ]] && hat_snapshot pop-os \
-        && restic restore latest --host pop-os --target "${ARBEIT}/pop" \
+if [[ "${PROGRAMME,,}" != n* && "${HOST}" != pop-os ]] \
+        && restic restore "${POP_SNAP}" --target "${ARBEIT}/pop" \
                --include /etc/fstab --include /root/.ssh >> "${ARBEIT}/programme.log" 2>&1; then
     WURZELN+=("${ARBEIT}/pop")
 fi
@@ -250,7 +267,7 @@ if [[ "${PROGRAMME,,}" == n* ]]; then
     :   # nur beim Umzug aus Pop!_OS
 elif [[ -f "${CRYPTO}" ]] && grep -q '"path"' "${CRYPTO}"; then
     ERGEBNIS+=("Cryptomator: Tresore schon eingetragen, unverändert")
-elif hat_snapshot pop-os && restic restore "latest:/home/${BENUTZER}/.config/Cryptomator" --host pop-os \
+elif restic restore "${POP_SNAP}:/home/${BENUTZER}/.config/Cryptomator" \
         --target "${ARBEIT}/cryptomator" >> "${ARBEIT}/programme.log" 2>&1 \
         && [[ -f "${ARBEIT}/cryptomator/settings.json" ]]; then
     while pgrep -u "${BENUTZER}" -f org.cryptomator > /dev/null; do
@@ -298,36 +315,73 @@ PROGRAMM_EINSTELLUNGEN=(
     ".config/tabby|${CHROMIUM_RAUS}"
 )
 
-# Quelle ist immer die letzte Pop!_OS-Sicherung (dort liegt das Home unter /home).
-# restic läuft als Benutzer und schreibt direkt ins Home — Dateien gehören ihm.
+# Daten und persönliche Einstellungen beim Umzug — Liste mit Sergej abgestimmt
+# (30.10.2026): „nach der Installation der Stand von jetzt, aber kein Müll von
+# Pop!_OS“. Nicht dabei: Downloads, vergleich, Documents, alter Ordner .thunderbird
+# (Thunderbird läuft als Flatpak), Firefox/LibreOffice/GIMP/darktable-Reste,
+# Zwischenspeicher, Logs, .restic-pass (gehört zu Pop!_OS), Steam, übrige Flatpaks
+# (frisch, Sergej 19. und 30.10.2026), alles mit dem alten Schlüsselbund
+# Verschlüsselte (Bitwarden, Claude Desktop, ChatGPT, VS-Code-Einstellungen).
+DATEN=(
+    Dokumente Bilder Videos Musik Vorlagen          # Daten, Obsidian-Vault in Dokumente
+    wg-pavlonya.key private.key public.key          # lose Schlüsseldateien im Home
+    .gitconfig .gnupg .bash_history
+    .claude .claude.json                            # Claude Code
+    .config/rclone .config/gh                       # gh: einmal „gh auth login“
+    .config/systemd/user                            # Forgejo-Dump nachts abholen
+)
+
+# Quelle ist die beim Start festgelegte Pop!_OS-Sicherung (dort liegt das Home unter
+# /home). restic läuft als Benutzer und schreibt direkt ins Home — Dateien gehören ihm.
 if [[ "${PROGRAMME,,}" != n* ]]; then
-    if hat_snapshot pop-os; then
-        echo
-        echo "Programm-Einstellungen aus Pop!_OS werden übernommen. Bitte diese Programme"
-        echo "schließen: Floorp, Chrome, Chromium, Thunderbird, Obsidian, WinBox, Remmina,"
-        echo "RustDesk, Bambu Studio, Zed, VS Code, Tabby."
-        read -rp "Weiter mit Enter … " _
-        ok=(); fehl=()
-        for eintrag in "${PROGRAMM_EINSTELLUNGEN[@]}"; do
-            IFS='|' read -ra teile <<< "${eintrag}"
-            rel="${teile[0]}"
-            EXCL=()
-            for e in "${teile[@]:1}"; do EXCL+=(--exclude "${e}"); done
-            if restic restore "latest:/home/${BENUTZER}/${rel}" --host pop-os \
-                    --target "${HOMEDIR}/${rel}" "${EXCL[@]}" >> "${ARBEIT}/programme.log" 2>&1; then
-                ok+=("${rel##*/}")
-            else
-                fehl+=("${rel##*/}")
-            fi
-        done
-        # Obsidian-Vaults kommen NICHT mit — die folgen mit allen Dokumenten beim
-        # Umzug (14.10.2026); hier nur die Obsidian-Programmeinstellungen.
-        command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}" 2> /dev/null
-        ERGEBNIS+=("Programm-Einstellungen aus Pop!_OS: ${#ok[@]} übernommen (${ok[*]})")
-        (( ${#fehl[@]} > 0 )) && ERGEBNIS+=("   nicht in der Sicherung: ${fehl[*]}")
+    echo
+    echo "Aus Pop!_OS werden Programm-Einstellungen und Daten übernommen. Bitte diese"
+    echo "Programme schließen: Floorp, Chrome, Chromium, Thunderbird, Obsidian, WinBox,"
+    echo "Remmina, RustDesk, Bambu Studio, Zed, VS Code, Tabby."
+    read -rp "Weiter mit Enter … " _
+    ok=(); fehl=()
+    for eintrag in "${PROGRAMM_EINSTELLUNGEN[@]}"; do
+        IFS='|' read -ra teile <<< "${eintrag}"
+        rel="${teile[0]}"
+        EXCL=()
+        for e in "${teile[@]:1}"; do EXCL+=(--exclude "${e}"); done
+        if restic restore "${POP_SNAP}:/home/${BENUTZER}/${rel}" \
+                --target "${HOMEDIR}/${rel}" "${EXCL[@]}" >> "${ARBEIT}/programme.log" 2>&1; then
+            ok+=("${rel##*/}")
+        else
+            fehl+=("${rel##*/}")
+        fi
+    done
+    ERGEBNIS+=("Programm-Einstellungen aus Pop!_OS: ${#ok[@]} übernommen (${ok[*]})")
+    (( ${#fehl[@]} > 0 )) && ERGEBNIS+=("   nicht in der Sicherung: ${fehl[*]}")
+
+    echo "Daten aus Pop!_OS (Dokumente, Bilder, Videos, Musik …) — das dauert Stunden …"
+    INCL=()
+    for d in "${DATEN[@]}"; do INCL+=(--include "/${d}"); done
+    if restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${HOMEDIR}" "${INCL[@]}" \
+            > "${ARBEIT}/daten.log" 2>&1; then
+        da=(); for d in "${DATEN[@]}"; do [[ -e "${HOMEDIR}/${d}" ]] && da+=("${d}"); done
+        ERGEBNIS+=("Daten aus Pop!_OS: ${#da[@]} von ${#DATEN[@]} übernommen (${da[*]})")
     else
-        ERGEBNIS+=("Programm-Einstellungen: keine Pop!_OS-Sicherung gefunden")
+        ERGEBNIS+=("Daten aus Pop!_OS: FEHLER — $(grep -v '^\s*$' "${ARBEIT}/daten.log" | tail -1)")
     fi
+    # Eigene Zeilen der Pop!_OS-.bashrc (Bitwarden-SSH-Agent für Forgejo, ~/.local/bin);
+    # der Rest der Datei sind Pop!_OS-Vorgaben und bleibt weg
+    if restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${ARBEIT}/bashrc" \
+            --include /.bashrc >> "${ARBEIT}/programme.log" 2>&1 && [[ -f "${ARBEIT}/bashrc/.bashrc" ]]; then
+        n=0
+        while IFS= read -r zeile; do
+            grep -qxF "${zeile}" "${HOMEDIR}/.bashrc" 2> /dev/null && continue
+            echo "${zeile}" >> "${HOMEDIR}/.bashrc"; n=$((n + 1))
+        done < <(grep '^export ' "${ARBEIT}/bashrc/.bashrc")
+        chown "${BENUTZER}:${GID}" "${HOMEDIR}/.bashrc"
+        ERGEBNIS+=("   .bashrc: ${n} eigene Zeilen ergänzt")
+    fi
+    # Benutzer-Timer (Forgejo-Dump) laufen auch ohne Anmeldung
+    if compgen -G "${HOMEDIR}/.config/systemd/user/*.timer" > /dev/null; then
+        loginctl enable-linger "${BENUTZER}" 2> /dev/null && ERGEBNIS+=("   Benutzer-Timer: läuft auch ohne Anmeldung")
+    fi
+    command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}" 2> /dev/null
 fi
 
 echo

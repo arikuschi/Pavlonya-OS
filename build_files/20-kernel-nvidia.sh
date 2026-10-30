@@ -56,10 +56,18 @@ for dir in /usr/lib/modules/*; do
 done
 
 dnf -y install "${SRC}"/rpms/ublue-os/ublue-os-nvidia-addons-*.rpm
+# Ohne den Treiber für den X-Server und dessen Einrichtungswerkzeug: COSMIC läuft
+# unter Wayland, XWayland braucht sie nicht (30.10.2026)
+NVRPMS=()
+for r in "${SRC}"/rpms/nvidia/*.x86_64.rpm "${SRC}"/rpms/nvidia/*.noarch.rpm; do
+    case "${r##*/}" in
+        xorg-x11-nvidia-*|nvidia-xconfig-*) echo "### ausgelassen: ${r##*/}" ;;
+        *) NVRPMS+=("${r}") ;;
+    esac
+done
 # negativo17-Quelle (aus dem Addon) nur für diesen Aufruf, für die 32-Bit-Bibliotheken
 dnf -y install --enablerepo='fedora-nvidia*' \
-    "${SRC}"/rpms/nvidia/*.x86_64.rpm \
-    "${SRC}"/rpms/nvidia/*.noarch.rpm \
+    "${NVRPMS[@]}" \
     "${SRC}/rpms/kmods/kmod-nvidia-${KERNEL_VERSION}-${NVIDIA_AKMOD_VERSION}.${DIST_ARCH}.rpm" \
     nvidia-driver-libs.i686 \
     egl-wayland \
@@ -74,6 +82,13 @@ if [[ "${KMOD}" != "${DRV}" || "${DRV}" != "${LIB32}" ]]; then
     echo "FEHLER: kmod ${KMOD} / Treiber ${DRV} / 32 Bit ${LIB32} passen nicht zusammen" >&2
     exit 1
 fi
+
+# Firmware des Treibers nur für Ampere (RTX 3070: ga10x); die für Turing (tu10x)
+# braucht der Laptop nicht — 32 MB im Image und in der initramfs (30.10.2026)
+for d in /usr/lib/firmware/nvidia/[0-9]*.[0-9]*; do
+    test -s "${d}/gsp_ga10x.bin"
+    rm -fv "${d}"/*tu10x*
+done
 
 # NVIDIA und amdgpu in die initramfs mitnehmen (sonst bleibt der HDMI-Ausgang an
 # der dGPU beim Start schwarz), aber NICHT erzwingen (25.10.2026): erzwungene

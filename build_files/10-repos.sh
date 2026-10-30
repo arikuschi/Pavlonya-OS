@@ -17,11 +17,19 @@ FEDORA="$(rpm -E %fedora)"
 #   Firmware fremder Hardware: Atheros, Broadcom, TI, NXP, Realtek (WLAN/BT ist
 #   MediaTek, LAN-Firmware liegt in linux-firmware), Intel-Grafik/-Audio/-NPU,
 #   Cirrus-Audio, Qualcomm-WWAN
+# Prüfung gegen die Hardware (30.10.2026, Sergej: nur was der Laptop braucht):
+#   nvidia-gpu-firmware      Firmware für nouveau (~106 MB); der NVIDIA-Treiber bringt eigene mit
+#   microcode_ctl            Microcode für Intel-CPUs; der Laptop hat eine AMD-CPU
+#   qemu-user-static*        fremde CPU-Architekturen in Containern (~179 MB), nur Empfehlung von podman
+#   default-fonts-cjk, google-noto-*-cjk-*   chinesische/japanische/koreanische Schriften (~122 MB)
+#   NetworkManager-cloud-setup   Einrichtung von Cloud-Servern
 BASIS_RAUS=(
     python3-boto3 python3-botocore toolbox sos sg3_utils
     ModemManager libqmi libmbim NetworkManager-wwan
     atheros-firmware brcmfmac-firmware tiwilink-firmware nxpwireless-firmware realtek-firmware
     intel-gpu-firmware intel-audio-firmware intel-npu-firmware cirrus-audio-firmware qcom-wwan-firmware
+    nvidia-gpu-firmware microcode_ctl "qemu-user-static*" NetworkManager-cloud-setup
+    default-fonts-cjk "google-noto-*-cjk-*"
 )
 dnf -y remove --no-autoremove "${BASIS_RAUS[@]}"
 

@@ -45,4 +45,15 @@ for mod in i915 xe nouveau radeon; do
     fi
     echo "OK: ${mod} nicht in der initramfs"
 done
+# Nur was der Laptop braucht (30.10.2026): AMD-Microcode ja, Intel nein;
+# NVIDIA-Firmware für Ampere ja, für Turing nein
+for f in AuthenticAMD.bin gsp_ga10x.bin; do
+    grep -q "/${f}" <<< "${INITRD}" || { echo "FEHLER: ${f} fehlt in der initramfs" >&2; exit 1; }
+done
+for f in GenuineIntel.bin gsp_tu10x.bin ucodes_tu10x.bin; do
+    if grep -q "/${f}" <<< "${INITRD}"; then
+        echo "FEHLER: ${f} ist in der initramfs" >&2
+        exit 1
+    fi
+done
 head -1 <<< "${INITRD}"

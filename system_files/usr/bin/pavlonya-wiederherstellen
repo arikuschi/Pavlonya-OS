@@ -6,6 +6,8 @@
 #   - VPN-Verbindungen     /etc/NetworkManager/system-connections/
 #   - Backup-Einstellungen /etc/pavlonya-os/ (backup.conf, restic-passwort)
 #   - SSH-Schlüssel        ~/.ssh
+#   - Storage Box          sshfs-Zeilen aus /etc/fstab, SSH-Dateien von root
+#   - Cryptomator          Tresorliste, wenn hier noch keiner eingetragen ist
 # Vorhandene Dateien werden NICHT überschrieben.
 #
 # Danach auf Wunsch: Programm-Einstellungen aus der letzten Pop!_OS-Sicherung —
@@ -92,7 +94,8 @@ fi
 echo "Hole aus der letzten Sicherung von „${HOST}“ …"
 
 # Home liegt unter Pop!_OS in /home, unter Pavlonya OS in /var/home
-INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" --include /run/NetworkManager/system-connections )
+INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" --include /run/NetworkManager/system-connections
+       --include /etc/fstab --include /root/.ssh --include /var/roothome/.ssh )
 for h in "/home/${BENUTZER}" "/var/home/${BENUTZER}"; do
     INCL+=( --include "${h}/.ssh" )
 done
@@ -173,6 +176,81 @@ for h in "/var/home/${BENUTZER}" "/home/${BENUTZER}"; do
 done
 command -v restorecon > /dev/null && [[ -d "${HOMEDIR}/.ssh" ]] && restorecon -R "${HOMEDIR}/.ssh"
 ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
+
+# --- Storage Box (sshfs) -------------------------------------------------------
+# Unter Pop!_OS hängt root sie per /etc/fstab ein (fuse.sshfs, Schlüssel in
+# /root/.ssh). Übernommen werden die sshfs-Zeilen der gesicherten fstab und die
+# SSH-Dateien von root — Adresse und Schlüssel stehen nur in der Sicherung, nie
+# im Repo. /mnt ist unter Pavlonya OS ein Verweis auf /var/mnt; systemd und
+# Flatpak brauchen den echten Pfad (30.10.2026).
+n=0
+for quelle in "${ARBEIT}/r/var/roothome/.ssh" "${ARBEIT}/r/root/.ssh"; do
+    [[ -d "${quelle}" ]] || continue
+    install -d -m700 /root/.ssh
+    for f in "${quelle}"/*; do
+        [[ -e "${f}" ]] || continue
+        ziel="/root/.ssh/$(basename "${f}")"
+        if [[ ! -e "${ziel}" ]]; then
+            cp -a "${f}" "${ziel}"
+            chown root:root "${ziel}"
+            n=$((n + 1))
+        fi
+    done
+    break
+done
+command -v restorecon > /dev/null && [[ -d /root/.ssh ]] && restorecon -R /root/.ssh
+SSHFS_ZIELE=(); neu=()
+if [[ -f "${ARBEIT}/r/etc/fstab" ]]; then
+    while read -r quelle ziel typ optionen rest; do
+        [[ "${quelle}" == \#* || "${typ:-}" != fuse.sshfs ]] && continue
+        [[ "${ziel}" == /mnt/* ]] && ziel="/var${ziel}"
+        SSHFS_ZIELE+=("${ziel}")
+        awk -v z="${ziel}" '$2 == z { gefunden = 1 } END { exit !gefunden }' /etc/fstab && continue
+        mkdir -p "${ziel}"
+        printf '%s %s %s %s %s\n' "${quelle}" "${ziel}" "${typ}" "${optionen}" "${rest:-0 0}" >> /etc/fstab
+        neu+=("${ziel}")
+    done < "${ARBEIT}/r/etc/fstab"
+fi
+if (( ${#neu[@]} > 0 )); then
+    systemctl daemon-reload
+    for z in "${neu[@]}"; do
+        if timeout 30 mount "${z}" 2>> "${ARBEIT}/mount.log"; then
+            ERGEBNIS+=("Storage Box: ${z} eingetragen und eingehängt")
+        else
+            ERGEBNIS+=("Storage Box: ${z} eingetragen, Einhängen fehlgeschlagen: $(tail -1 "${ARBEIT}/mount.log")")
+        fi
+    done
+elif (( ${#SSHFS_ZIELE[@]} > 0 )); then
+    ERGEBNIS+=("Storage Box: schon in /etc/fstab, unverändert")
+fi
+ERGEBNIS+=("   SSH-Dateien von root: ${n} übernommen")
+# Cryptomator (Flatpak) braucht Zugriff auf den Einhängepunkt
+for z in "${SSHFS_ZIELE[@]}"; do
+    flatpak override --system org.cryptomator.Cryptomator --filesystem="${z}" 2> /dev/null || true
+done
+
+# --- Cryptomator ----------------------------------------------------------------
+# Die Tresorliste liegt unter ~/.config/Cryptomator, nicht unter ~/.var/app.
+# Übernommen nur, wenn hier noch kein Tresor eingetragen ist; Pfade /mnt/… werden
+# zu /var/mnt/…. Das Tresor-Kennwort liegt im Pop!_OS-Schlüsselbund und kommt
+# nicht mit: beim ersten Entsperren einmal eingeben und speichern (30.10.2026).
+CRYPTO="${HOMEDIR}/.config/Cryptomator/settings.json"
+if [[ -f "${CRYPTO}" ]] && grep -q '"path"' "${CRYPTO}"; then
+    ERGEBNIS+=("Cryptomator: Tresore schon eingetragen, unverändert")
+elif hat_snapshot pop-os && restic restore "latest:/home/${BENUTZER}/.config/Cryptomator" --host pop-os \
+        --target "${ARBEIT}/cryptomator" >> "${ARBEIT}/programme.log" 2>&1 \
+        && [[ -f "${ARBEIT}/cryptomator/settings.json" ]]; then
+    while pgrep -u "${BENUTZER}" -f org.cryptomator > /dev/null; do
+        read -rp "Cryptomator läuft — bitte schließen, dann Enter … " _
+    done
+    install -d -m755 -o "${BENUTZER}" -g "${GID}" "${HOMEDIR}/.config/Cryptomator"
+    sed 's#"/mnt/#"/var/mnt/#g' "${ARBEIT}/cryptomator/settings.json" > "${CRYPTO}"
+    chown "${BENUTZER}:${GID}" "${CRYPTO}"; chmod 644 "${CRYPTO}"
+    command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/.config/Cryptomator"
+    ERGEBNIS+=("Cryptomator: Tresorliste aus Pop!_OS übernommen — Tresor-Kennwort einmal neu eingeben")
+else
+    ERGEBNIS+=("Cryptomator: keine Einstellungen in der Pop!_OS-Sicherung")
+fi
 
 # --- Programm-Einstellungen aus Pop!_OS ----------------------------------------
 # Nur, was ohne den Pop!_OS-Schlüsselbund funktioniert (19.10.2026: saubere

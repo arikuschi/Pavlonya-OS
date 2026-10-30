@@ -43,7 +43,8 @@ HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
 echo "=== Pavlonya OS — Gerätedaten wiederherstellen (Benutzer ${BENUTZER}) ==="
 read -rp "TrueNAS-Adresse (IP, steht im Vault unter „Homelab Pavlonya“): " NAS
 read -rsp "restic-Kennwort (Bitwarden): " PASSWORT; echo
-read -rp "Auch Programm-Einstellungen aus Pop!_OS übernehmen (Browser, Thunderbird, Obsidian, WinBox, RustDesk …)? [J/n] " PROGRAMME
+echo "Sonst kommt alles aus der Sicherung von Pavlonya OS. Nur beim Umzug von Pop!_OS:"
+read -rp "Auch aus Pop!_OS übernehmen (Programm-Einstellungen, Storage Box, Cryptomator)? [J/n] " PROGRAMME
 
 GID="$(id -g "${BENUTZER}")"
 ARBEIT="$(mktemp -d /var/tmp/pavlonya-wiederherstellen.XXXX)"
@@ -183,24 +184,34 @@ ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
 # SSH-Dateien von root — Adresse und Schlüssel stehen nur in der Sicherung, nie
 # im Repo. /mnt ist unter Pavlonya OS ein Verweis auf /var/mnt; systemd und
 # Flatpak brauchen den echten Pfad (30.10.2026).
+# Quelle ist die Sicherung von Pavlonya OS; aus Pop!_OS nur beim Umzug (Frage oben)
+# — beide Wege bleiben getrennt (Sergej, 30.10.2026).
+WURZELN=("${ARBEIT}/r")
+if [[ "${PROGRAMME,,}" != n* && "${HOST}" != pop-os ]] && hat_snapshot pop-os \
+        && restic restore latest --host pop-os --target "${ARBEIT}/pop" \
+               --include /etc/fstab --include /root/.ssh >> "${ARBEIT}/programme.log" 2>&1; then
+    WURZELN+=("${ARBEIT}/pop")
+fi
 n=0
-for quelle in "${ARBEIT}/r/var/roothome/.ssh" "${ARBEIT}/r/root/.ssh"; do
-    [[ -d "${quelle}" ]] || continue
-    install -d -m700 /root/.ssh
-    for f in "${quelle}"/*; do
-        [[ -e "${f}" ]] || continue
-        ziel="/root/.ssh/$(basename "${f}")"
-        if [[ ! -e "${ziel}" ]]; then
-            cp -a "${f}" "${ziel}"
-            chown root:root "${ziel}"
-            n=$((n + 1))
-        fi
+for w in "${WURZELN[@]}"; do
+    for quelle in "${w}/var/roothome/.ssh" "${w}/root/.ssh"; do
+        [[ -d "${quelle}" ]] || continue
+        install -d -m700 /root/.ssh
+        for f in "${quelle}"/*; do
+            [[ -e "${f}" ]] || continue
+            ziel="/root/.ssh/$(basename "${f}")"
+            if [[ ! -e "${ziel}" ]]; then
+                cp -a "${f}" "${ziel}"
+                chown root:root "${ziel}"
+                n=$((n + 1))
+            fi
+        done
     done
-    break
 done
 command -v restorecon > /dev/null && [[ -d /root/.ssh ]] && restorecon -R /root/.ssh
 SSHFS_ZIELE=(); neu=()
-if [[ -f "${ARBEIT}/r/etc/fstab" ]]; then
+for w in "${WURZELN[@]}"; do
+    [[ -f "${w}/etc/fstab" ]] || continue
     while read -r quelle ziel typ optionen rest; do
         [[ "${quelle}" == \#* || "${typ:-}" != fuse.sshfs ]] && continue
         [[ "${ziel}" == /mnt/* ]] && ziel="/var${ziel}"
@@ -209,8 +220,8 @@ if [[ -f "${ARBEIT}/r/etc/fstab" ]]; then
         mkdir -p "${ziel}"
         printf '%s %s %s %s %s\n' "${quelle}" "${ziel}" "${typ}" "${optionen}" "${rest:-0 0}" >> /etc/fstab
         neu+=("${ziel}")
-    done < "${ARBEIT}/r/etc/fstab"
-fi
+    done < "${w}/etc/fstab"
+done
 if (( ${#neu[@]} > 0 )); then
     systemctl daemon-reload
     for z in "${neu[@]}"; do
@@ -235,7 +246,9 @@ done
 # zu /var/mnt/…. Das Tresor-Kennwort liegt im Pop!_OS-Schlüsselbund und kommt
 # nicht mit: beim ersten Entsperren einmal eingeben und speichern (30.10.2026).
 CRYPTO="${HOMEDIR}/.config/Cryptomator/settings.json"
-if [[ -f "${CRYPTO}" ]] && grep -q '"path"' "${CRYPTO}"; then
+if [[ "${PROGRAMME,,}" == n* ]]; then
+    :   # nur beim Umzug aus Pop!_OS
+elif [[ -f "${CRYPTO}" ]] && grep -q '"path"' "${CRYPTO}"; then
     ERGEBNIS+=("Cryptomator: Tresore schon eingetragen, unverändert")
 elif hat_snapshot pop-os && restic restore "latest:/home/${BENUTZER}/.config/Cryptomator" --host pop-os \
         --target "${ARBEIT}/cryptomator" >> "${ARBEIT}/programme.log" 2>&1 \

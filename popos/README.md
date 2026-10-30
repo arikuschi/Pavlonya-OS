@@ -29,24 +29,6 @@ VPN/WLAN → Laufwerke → System-Einstellungen (Grafik, Drucker, SSH, Bluetooth
 Backup-Dienst → Home. Danach neu starten — erst dann gelten Grafikmodus und Modul-Regeln.
 Ersetzte Vorgaben der Neuinstallation bleiben als `*.neuinstallation` liegen.
 
-## Abbild der ganzen Platte (vor dem Überschreiben)
-
-Die Dateisicherung oben bringt neuere Programmversionen und lädt Steam-Spiele neu. Für
-einen Rückweg auf exakt den gesicherten Stand: Abbild der Pop!_OS-Platte auf die TrueNAS —
-Partitionstabelle samt UUIDs, EFI-, Recovery- und Systempartition (partclone, nur
-belegte Blöcke, zstd), danach vollständig geprüft. Läuft unter einem anderen System
-(Pavlonya OS auf der zweiten Platte), Pop!_OS darf nicht laufen:
-
-    curl -fsSLO https://raw.githubusercontent.com/arikuschi/Pavlonya-OS/main/popos/abbild-sichern.sh
-    sudo bash abbild-sichern.sh
-
-Zurück (überschreibt die Zielplatte komplett, legt den Firmware-Starteintrag neu an):
-
-    curl -fsSLO https://raw.githubusercontent.com/arikuschi/Pavlonya-OS/main/popos/abbild-zurueck.sh
-    sudo bash abbild-zurueck.sh
-
-partclone holen beide Skripte einmalig in einem Fedora-Container.
-
 ## Technik
 
 restic läuft als Benutzer (Besitzer des Repos auf der TrueNAS) mit dem Zusatzrecht

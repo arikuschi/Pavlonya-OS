@@ -37,7 +37,24 @@ GID="$(id -g "${BENUTZER}")"
 # Home: alles außer dem, was sich neu laden lässt (relativ zum Home)
 HOME_AUSSCHLUESSE=(
     .cache                                  # Zwischenspeicher, auch der von restic
-    .local/share/flatpak                    # Flatpak-Programme — kommen über die Programmliste
+    # Flatpak-Programme und -Laufzeiten kommen über die Programmliste. overrides (Freigaben,
+    # z. B. Cryptomator → /mnt/storagebox) und db (erteilte Berechtigungen) bleiben drin
+    # — nur die gibt es nicht neu zu laden (30.10.2026)
+    .local/share/flatpak/app .local/share/flatpak/runtime .local/share/flatpak/repo
+    .local/share/flatpak/appstream .local/share/flatpak/exports
+    # Kein gesammelter Müll, nur was gebraucht wird (Sergej, 30.10.2026):
+    # Zwischenspeicher und Protokolle — legen sich selbst neu an
+    .config/Claude/Cache ".config/Claude/Code Cache" .config/Claude/GPUCache .config/Claude/logs
+    .config/Code/CachedExtensionVSIXs .config/Code/CachedData .config/Code/Cache
+    .config/Code/GPUCache .config/Code/logs
+    .config/Codex/component_crx_cache .codex/.tmp .codex/cache
+    .skiko .nv .local/share/logs .dotnet
+    restic.log nvme-unsafe.log .wget-hsts pop-inventar.txt programme.txt .claude.json.backup
+    # Reste von Programmen, die nicht (mehr) genutzt werden
+    .config/GIMP .config/darktable                  # nativ, längst entfernt (GIMP läuft als Flatpak)
+    .mozilla .config/mozilla .config/libreoffice    # vorinstalliert; genutzt werden Floorp und OnlyOffice
+    vergleich Documents                             # alter Systemvergleich (13.08.), Doppelordner
+    Downloads
     .local/share/containers                 # Podman-Images zum Testen, neu ladbar
     .local/share/Trash
     .local/share/Steam .steam
@@ -55,6 +72,7 @@ SYSTEM_FEST=(
     /etc/cups/printers.conf /etc/cups/ppd           # Drucker
     /etc/ssh                                        # SSH-Server: Einstellungen und Host-Schlüssel
     /var/lib/bluetooth                              # gekoppelte Geräte
+    /var/lib/systemd/linger                         # Benutzer-Timer ohne Anmeldung (Forgejo-Dump)
     /etc/popos-backup /usr/local/sbin/popos-backup  # dieser Dienst
     /etc/systemd/system/popos-backup.service /etc/systemd/system/popos-backup.timer
     /var/lib/popos-backup/inventar

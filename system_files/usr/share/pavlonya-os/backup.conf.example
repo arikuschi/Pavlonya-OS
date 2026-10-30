@@ -24,7 +24,8 @@ HOME_PFADE=(
     .local/share/onlyoffice .pki
 )
 # Systempfade
-SYSTEM_PFADE=( /etc/fstab /etc/hosts /etc/NetworkManager /etc/pavlonya-os )
+# (/var/roothome/.ssh: Schlüssel von root für die Storage Box, 30.10.2026)
+SYSTEM_PFADE=( /etc/fstab /etc/hosts /etc/NetworkManager /etc/pavlonya-os /var/roothome/.ssh )
 
 AUSSCHLUESSE=(
     "*/.var/app/*/cache"

@@ -163,6 +163,24 @@ grep -qx true /usr/share/cosmic/com.system76.CosmicAppletTime/v1/military_time
 # 21.10.2026). Systemvorgabe von cosmic-comp; wer in den Einstellungen etwas
 # anderes wählt, behält seine eigene Einstellung.
 grep -q 'numlock_state: BootOn' /usr/share/cosmic/com.system76.CosmicComp/v1/keyboard_config
+# Standardprogramme: Browser Floorp, Texteditor Zed, Terminal Tabby (02.11.2026).
+# COSMICs Vorgabe nennt Firefox, das hier fehlt — dann nahm COSMIC die ChatGPT-App aus
+# der Box, die sich für http meldet. /etc/xdg geht vor /usr/share/applications; die
+# Textformate kommen aus COSMICs eigener Liste, damit neue mitwandern.
+{
+    echo "[Default Applications]"
+    for m in text/html application/xhtml+xml x-scheme-handler/http x-scheme-handler/https x-scheme-handler/chrome; do
+        echo "${m}=one.ablaze.floorp.desktop"
+    done
+    sed -n 's/=com.system76.CosmicEdit.desktop$/=dev.zed.Zed.desktop/p' /usr/share/applications/cosmic-mimeapps.list
+    echo "x-scheme-handler/terminal=tabby.desktop"
+} > /etc/xdg/cosmic-mimeapps.list
+grep -q '^text/plain=dev.zed.Zed.desktop' /etc/xdg/cosmic-mimeapps.list
+# Super+T öffnet das Terminal über diese Systemaktion, nicht über die Liste oben
+sed -i 's|Terminal: "cosmic-term"|Terminal: "gtk-launch tabby"|' \
+    /usr/share/cosmic/com.system76.CosmicSettings.Shortcuts/v1/system_actions
+grep -q 'Terminal: "gtk-launch tabby"' /usr/share/cosmic/com.system76.CosmicSettings.Shortcuts/v1/system_actions
+test -f /usr/share/applications/tabby.desktop && test -x /usr/bin/gtk-launch
 # Dock: Vorgabe wie das Pop!_OS-Dock (12.10.2026) statt Fedoras Liste mit
 # Firefox, das hier nicht installiert ist. Gilt für Benutzer ohne eigene Dock-Einstellung.
 grep -q 'one.ablaze.floorp' /usr/share/cosmic/com.system76.CosmicAppList/v1/favorites

@@ -22,10 +22,12 @@ HOME_PFADE=(
     .ssh .gnupg .config .var/app .bashrc .profile .thunderbird .vscode
     .local/share/keyrings .local/share/applications .local/share/Cryptomator
     .local/share/onlyoffice .pki
+    .local/state/cosmic-comp
 )
 # Systempfade
-# (/var/roothome/.ssh: Schlüssel von root für die Storage Box, 30.10.2026)
-SYSTEM_PFADE=( /etc/fstab /etc/hosts /etc/NetworkManager /etc/pavlonya-os /var/roothome/.ssh )
+# (/var/roothome/.ssh: Schlüssel von root für die Storage Box, 30.10.2026;
+#  /etc/cups: Drucker, .local/state/cosmic-comp oben: Monitore, 02.11.2026)
+SYSTEM_PFADE=( /etc/fstab /etc/hosts /etc/NetworkManager /etc/pavlonya-os /var/roothome/.ssh /etc/cups )
 
 AUSSCHLUESSE=(
     "*/.var/app/*/cache"

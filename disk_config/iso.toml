@@ -6,7 +6,9 @@
 # Vault → Pavlonya OS → „Vorfall: Installer löschte alle EFI-Partitionen".
 
 # Vorgaben im Kickstart (im Installer weiterhin änderbar): Sprache Deutsch,
-# Tastatur de nodeadkeys, Zeitzone Berlin.
+# Tastatur de (mit Tottasten wie unter Pop!_OS — „nodeadkeys“ war falsch,
+# 02.11.2026), Zeitzone Berlin, Hardware-Uhr in UTC (ohne --utc stellt der
+# Kickstart sie auf Ortszeit; Entscheidung UTC 25.10.2026).
 #
 # Root-Konto und Benutzer bleiben beide frei wählbar (10.10.2026).
 # Anaconda verlangt nur eines von beiden; fehlt der Benutzer, legt
@@ -15,8 +17,8 @@
 contents = """
 graphical
 lang de_DE.UTF-8
-keyboard --vckeymap=de-nodeadkeys --xlayouts='de (nodeadkeys)'
-timezone Europe/Berlin
+keyboard --vckeymap=de --xlayouts='de'
+timezone Europe/Berlin --utc
 """
 
 [customizations.installer.modules]

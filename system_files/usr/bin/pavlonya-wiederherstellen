@@ -7,11 +7,14 @@
 #   - Backup-Einstellungen /etc/pavlonya-os/ (backup.conf, restic-passwort)
 #   - SSH-Schlüssel        ~/.ssh
 #   - Storage Box          sshfs-Zeilen aus /etc/fstab, SSH-Dateien von root
-# Vorhandene Dateien werden NICHT überschrieben.
+#   - Drucker              /etc/cups (nur, wenn noch keiner eingerichtet ist)
+# Vorhandene Dateien werden NICHT überschrieben. Ausnahme: Monitore, Uhr, Tastatur
+# und Energie von COSMIC (COSMIC legt sie bei der ersten Anmeldung mit eigenen
+# Vorgaben an). Rechnername und Hardware-Uhr (UTC) werden gesetzt, falls nötig.
 #
 # Beim Umzug von Pop!_OS (Frage „Auch aus Pop!_OS übernehmen?“ → J), alles aus
 # EINER Pop!_OS-Sicherung (der neuesten):
-#   - Storage Box und Cryptomator-Tresorliste
+#   - Storage Box, Drucker, COSMIC-Einstellungen und Cryptomator-Tresorliste
 #   - Programm-Einstellungen (PROGRAMM_EINSTELLUNGEN unten), ohne Schlüsselbund
 #   - Daten und persönliche Einstellungen (DATEN unten), ohne Müll von Pop!_OS
 # Programm-Einstellungen und Daten werden ÜBERSCHRIEBEN; die Programme müssen dafür
@@ -76,6 +79,40 @@ restic() {
         RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}" RESTIC_PASSWORD_FILE="${ARBEIT}/pw" \
         /usr/bin/restic "$@"
 }
+# restic restore mit Fortschritt (Prozent, Menge, Dateien, Restzeit) — ohne Anzeige
+# war bei Stunden für die Daten nicht zu sehen, ob es noch läuft (02.11.2026).
+# Statuszeilen kommen mit --json; alles andere und Fehler gehen ins Protokoll.
+mit_fortschritt() {  # mit_fortschritt <Titel> <Protokoll> <Argumente von restic restore …>
+    local titel="$1" log="$2"; shift 2
+    RESTIC_PROGRESS_FPS=0.5 restic restore "$@" --json 2>> "${log}" \
+        | LC_ALL=C awk -v titel="${titel}" -v protokoll="${log}" -v start="$(date +%s)" '
+            function wert(k) {
+                return match($0, "\"" k "\":[0-9.e+-]+") ? substr($0, RSTART + length(k) + 3, RLENGTH - length(k) - 3) + 0 : 0
+            }
+            function menge(b,  s) {
+                s = (b >= 1e9) ? sprintf("%.1f GB", b / 1e9) : sprintf("%.0f MB", b / 1e6)
+                sub(/\./, ",", s); return s
+            }
+            function dauer(s) {
+                return (s >= 3600) ? sprintf("%d h %02d min", s / 3600, (s % 3600) / 60) \
+                     : (s >= 60) ? sprintf("%d min", s / 60) : sprintf("%d s", s)
+            }
+            /"message_type":"status"/ {
+                p = wert("percent_done"); vergangen = systime() - start
+                zeile = sprintf("   %s: %3d %% · %s von %s · %d von %d Dateien", titel, p * 100,
+                    menge(wert("bytes_restored")), menge(wert("total_bytes")),
+                    wert("files_restored"), wert("total_files"))
+                if (p > 0.005 && vergangen >= 10) zeile = zeile " · noch ca. " dauer(vergangen * (1 - p) / p)
+                printf "\r%-110s", zeile; fflush(); next
+            }
+            /"message_type":"summary"/ {
+                printf "\r%-110s\n", sprintf("   %s: fertig · %s · %d Dateien · %s", titel,
+                    menge(wert("bytes_restored")), wert("files_restored"), dauer(systime() - start))
+                fertig = 1; next
+            }
+            { print >> protokoll }
+            END { if (!fertig) printf "\r%-110s\n", "   " titel ": nicht übernommen" }'
+}
 
 # Welche Sicherung? Bevorzugt die eigene, sonst die von Pop!_OS.
 hat_snapshot() { restic snapshots --host "$1" --latest 1 --json 2> /dev/null | grep -q '"id"'; }
@@ -115,7 +152,8 @@ fi
 
 # Home liegt unter Pop!_OS in /home, unter Pavlonya OS in /var/home
 INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" --include /run/NetworkManager/system-connections
-       --include /etc/fstab --include /root/.ssh --include /var/roothome/.ssh )
+       --include /etc/fstab --include /root/.ssh --include /var/roothome/.ssh
+       --include /etc/cups/printers.conf --include /etc/cups/ppd )
 for h in "/home/${BENUTZER}" "/var/home/${BENUTZER}"; do
     INCL+=( --include "${h}/.ssh" )
 done
@@ -208,7 +246,8 @@ ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
 WURZELN=("${ARBEIT}/r")
 if [[ "${PROGRAMME,,}" != n* && "${HOST}" != pop-os ]] \
         && restic restore "${POP_SNAP}" --target "${ARBEIT}/pop" \
-               --include /etc/fstab --include /root/.ssh >> "${ARBEIT}/programme.log" 2>&1; then
+               --include /etc/fstab --include /root/.ssh \
+               --include /etc/cups/printers.conf --include /etc/cups/ppd >> "${ARBEIT}/programme.log" 2>&1; then
     WURZELN+=("${ARBEIT}/pop")
 fi
 n=0
@@ -258,6 +297,83 @@ ERGEBNIS+=("   SSH-Dateien von root: ${n} übernommen")
 for z in "${SSHFS_ZIELE[@]}"; do
     flatpak override --system org.cryptomator.Cryptomator --filesystem="${z}" 2> /dev/null || true
 done
+
+# --- Drucker --------------------------------------------------------------------
+# Unter Pop!_OS und Pavlonya OS von Hand eingerichtet; nach der Neuinstallation fehlte
+# er (02.11.2026). Nur, wenn hier noch kein Drucker steht; die Sicherung von Pavlonya
+# OS geht vor. Warteschlangen von cups-browsed (implicitclass://, Pop!_OS) gibt es
+# hier nicht — die bleiben weg.
+if grep -q '^<\(Default\)\?Printer ' /etc/cups/printers.conf 2> /dev/null; then
+    ERGEBNIS+=("Drucker: schon eingerichtet, unverändert")
+else
+    quelle=""
+    for w in "${WURZELN[@]}"; do
+        if grep -q '^<\(Default\)\?Printer ' "${w}/etc/cups/printers.conf" 2> /dev/null \
+                && ! grep -q 'implicitclass://' "${w}/etc/cups/printers.conf"; then
+            quelle="${w}"; break
+        fi
+    done
+    if [[ -n "${quelle}" ]]; then
+        systemctl stop cups    # CUPS schreibt printers.conf beim Beenden neu
+        install -m600 -o root -g lp "${quelle}/etc/cups/printers.conf" /etc/cups/printers.conf
+        for f in "${quelle}/etc/cups/ppd"/*.ppd; do
+            [[ -e "${f}" ]] && install -m640 -o root -g lp "${f}" /etc/cups/ppd/
+        done
+        command -v restorecon > /dev/null && restorecon -R /etc/cups
+        systemctl start cups
+        ERGEBNIS+=("Drucker: $(sed -n 's/^<\(Default\)\?Printer \(.*\)>$/\2/p' /etc/cups/printers.conf | paste -sd, -) übernommen")
+    else
+        ERGEBNIS+=("Drucker: keiner in der Sicherung")
+    fi
+fi
+
+# --- Rechnername und Hardware-Uhr -------------------------------------------------
+# Der Installer setzt keinen festen Namen; dann gilt der vom Router (pop-os).
+# Rechnername pavlonya-os (21.10.2026), Hardware-Uhr in UTC wie Pop!_OS
+# (25.10.2026) — beides fehlte nach der Neuinstallation (02.11.2026).
+if [[ -z "$(hostnamectl hostname --static 2> /dev/null)" ]]; then
+    hostnamectl hostname pavlonya-os && ERGEBNIS+=("Rechnername: pavlonya-os gesetzt")
+fi
+if [[ "$(timedatectl show -p LocalRTC --value 2> /dev/null)" == yes ]]; then
+    timedatectl set-local-rtc 0 && ERGEBNIS+=("Hardware-Uhr: auf UTC umgestellt")
+fi
+
+# --- COSMIC: Monitore, Uhr, Tastatur, Energie ------------------------------------
+# COSMIC legt sie bei der ersten Anmeldung mit eigenen Vorgaben an (4K-Monitor mit
+# 200 % und 60 Hz, Reihenfolge falsch, Uhr AM/PM — 02.11.2026), deshalb werden sie
+# ersetzt. Aussehen (Leiste, Dock, Farben) kommt weiter aus dem Image. Quelle wie
+# oben: beim Umzug Pop!_OS, sonst die Sicherung von Pavlonya OS.
+COSMIC_EINSTELLUNGEN=(
+    .local/state/cosmic-comp/outputs.ron                # Monitore
+    .config/cosmic/com.system76.CosmicAppletTime        # Uhr 24 h, Wochenbeginn
+    .config/cosmic/com.system76.CosmicComp/v1/xkb_config  # Tastatur
+    .config/cosmic/com.system76.CosmicIdle              # Bildschirm aus, Bereitschaft
+)
+if [[ "${PROGRAMME,,}" != n* ]]; then
+    C_SNAP="${POP_SNAP}"; C_HOME="/home/${BENUTZER}"
+else
+    # „latest“ als Snapshot-ID wie bei POP_SNAP — „--latest 1“ liefert die älteste zuerst
+    C_SNAP="$(restic snapshots --host "${HOST}" latest --json 2> /dev/null \
+        | grep -o '"short_id":"[^"]*"' | head -1 | cut -d'"' -f4)"
+    C_HOME="/var/home/${BENUTZER}"; [[ "${HOST}" == pop-os ]] && C_HOME="/home/${BENUTZER}"
+fi
+INCL=(); for e in "${COSMIC_EINSTELLUNGEN[@]}"; do INCL+=(--include "/${e}"); done
+if [[ -n "${C_SNAP}" ]] && restic restore "${C_SNAP}:${C_HOME}" --target "${ARBEIT}/cosmic" \
+        "${INCL[@]}" >> "${ARBEIT}/programme.log" 2>&1; then
+    da=()
+    for e in "${COSMIC_EINSTELLUNGEN[@]}"; do
+        [[ -e "${ARBEIT}/cosmic/${e}" ]] || continue
+        install -d -m755 -o "${BENUTZER}" -g "${GID}" "$(dirname "${HOMEDIR}/${e}")"
+        rm -rf "${HOMEDIR:?}/${e}"
+        cp -a "${ARBEIT}/cosmic/${e}" "${HOMEDIR}/${e}"
+        chown -R "${BENUTZER}:${GID}" "${HOMEDIR}/${e}"
+        da+=("${e##*/}")
+    done
+    command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/.config/cosmic" "${HOMEDIR}/.local/state" 2> /dev/null
+    ERGEBNIS+=("COSMIC: ${#da[@]} von ${#COSMIC_EINSTELLUNGEN[@]} übernommen (${da[*]}) — Monitore nach dem Neustart")
+else
+    ERGEBNIS+=("COSMIC: Einstellungen nicht in der Sicherung")
+fi
 
 # --- Cryptomator ----------------------------------------------------------------
 # Die Tresorliste liegt unter ~/.config/Cryptomator, nicht unter ~/.var/app.
@@ -341,14 +457,16 @@ if [[ "${PROGRAMME,,}" != n* ]]; then
     echo "Programme schließen: Floorp, Chrome, Chromium, Thunderbird, Obsidian, WinBox,"
     echo "Remmina, RustDesk, Bambu Studio, Zed, VS Code, Tabby."
     read -rp "Weiter mit Enter … " _
-    ok=(); fehl=()
+    ok=(); fehl=(); i=0
+    echo "Programm-Einstellungen aus Pop!_OS:"
     for eintrag in "${PROGRAMM_EINSTELLUNGEN[@]}"; do
         IFS='|' read -ra teile <<< "${eintrag}"
         rel="${teile[0]}"
         EXCL=()
         for e in "${teile[@]:1}"; do EXCL+=(--exclude "${e}"); done
-        if restic restore "${POP_SNAP}:/home/${BENUTZER}/${rel}" \
-                --target "${HOMEDIR}/${rel}" "${EXCL[@]}" >> "${ARBEIT}/programme.log" 2>&1; then
+        i=$((i + 1))
+        if mit_fortschritt "[${i}/${#PROGRAMM_EINSTELLUNGEN[@]}] ${rel##*/}" "${ARBEIT}/programme.log" \
+                "${POP_SNAP}:/home/${BENUTZER}/${rel}" --target "${HOMEDIR}/${rel}" "${EXCL[@]}"; then
             ok+=("${rel##*/}")
         else
             fehl+=("${rel##*/}")
@@ -357,11 +475,11 @@ if [[ "${PROGRAMME,,}" != n* ]]; then
     ERGEBNIS+=("Programm-Einstellungen aus Pop!_OS: ${#ok[@]} übernommen (${ok[*]})")
     (( ${#fehl[@]} > 0 )) && ERGEBNIS+=("   nicht in der Sicherung: ${fehl[*]}")
 
-    echo "Daten aus Pop!_OS (Dokumente, Bilder, Videos, Musik …) — das dauert Stunden …"
+    echo "Daten aus Pop!_OS (Dokumente, Bilder, Videos, Musik …) — das dauert Stunden:"
     INCL=()
     for d in "${DATEN[@]}"; do INCL+=(--include "/${d}"); done
-    if restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${HOMEDIR}" "${INCL[@]}" \
-            > "${ARBEIT}/daten.log" 2>&1; then
+    if mit_fortschritt "Daten" "${ARBEIT}/daten.log" \
+            "${POP_SNAP}:/home/${BENUTZER}" --target "${HOMEDIR}" "${INCL[@]}"; then
         da=(); for d in "${DATEN[@]}"; do [[ -e "${HOMEDIR}/${d}" ]] && da+=("${d}"); done
         ERGEBNIS+=("Daten aus Pop!_OS: ${#da[@]} von ${#DATEN[@]} übernommen (${da[*]})")
     else
@@ -390,4 +508,5 @@ echo
 echo "=== Ergebnis (Quelle: ${HOST}) ==="
 printf ' - %s\n' "${ERGEBNIS[@]}"
 echo
+echo "Danach neu starten — erst dann gelten die Monitor-Einstellungen."
 echo "Backup jetzt einmal testen:  sudo systemctl start pavlonya-backup && cat /var/lib/pavlonya-os/backup-status"

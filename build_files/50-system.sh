@@ -155,6 +155,10 @@ test -f /usr/share/wayland-sessions/cosmic.desktop
 # COSMIC-Vorgabe für die Tastatur: gilt für jeden Benutzer ohne eigene Einstellung
 # und damit auch für den Anmeldebildschirm (der liest die Einstellung des Benutzers)
 grep -q 'layout: "de"' /usr/share/cosmic/com.system76.CosmicComp/v1/xkb_config
+# de mit Tottasten wie unter Pop!_OS, nicht nodeadkeys (02.11.2026)
+if grep -rq nodeadkeys /usr/share/cosmic/com.system76.CosmicComp /etc/vconsole.conf /etc/X11/xorg.conf.d/00-keyboard.conf; then exit 1; fi
+# Uhr im Panel 24 Stunden, Woche ab Montag — COSMICs Vorgabe ist AM/PM (02.11.2026)
+grep -qx true /usr/share/cosmic/com.system76.CosmicAppletTime/v1/military_time
 # Nummernblock bei jedem Start an — Anmeldebildschirm und Sitzung (Wunsch
 # 21.10.2026). Systemvorgabe von cosmic-comp; wer in den Einstellungen etwas
 # anderes wählt, behält seine eigene Einstellung.

@@ -101,10 +101,12 @@ echo "Hole aus der letzten Sicherung von „${HOST}“ …"
 # (lokale LiveSync-Datenbank) müssen zusammenpassen (geprüft 22.10.2026)
 POP_SNAP=""
 if [[ "${PROGRAMME,,}" != n* ]]; then
-    POP_SNAP="$(restic snapshots --host pop-os --latest 1 --json 2> /dev/null \
-        | grep -o '"short_id":"[^"]*"' | head -1 | cut -d'"' -f4)"
+    # „latest“ als Snapshot-ID, nicht „--latest 1“: das liefert je Pfad-Gruppe eine,
+    # die älteste zuerst (am Repo 02.11.2026: 27.09. statt der Nacht davor)
+    POP_JSON="$(restic snapshots --host pop-os latest --json 2> /dev/null)"
+    POP_SNAP="$(grep -o '"short_id":"[^"]*"' <<< "${POP_JSON}" | head -1 | cut -d'"' -f4)"
     if [[ -n "${POP_SNAP}" ]]; then
-        echo "Pop!_OS-Sicherung für den Umzug: ${POP_SNAP}"
+        echo "Pop!_OS-Sicherung für den Umzug: ${POP_SNAP} vom $(grep -o '"time":"[^"]*"' <<< "${POP_JSON}" | head -1 | cut -d'"' -f4 | cut -c1-16 | tr T ' ')"
     else
         echo "Keine Pop!_OS-Sicherung gefunden — Umzugsteil entfällt."
         PROGRAMME=n

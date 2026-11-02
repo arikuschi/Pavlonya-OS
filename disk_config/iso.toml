@@ -2,8 +2,10 @@
 # Partitionen wählst du selbst (10.10.2026). Bewusst KEINE
 # Partitionierung im Kickstart — sonst entscheidet der Installer.
 #
-# Im Installer NUR die Samsung 850 EVO auswählen. Hintergrund:
+# Im Installer NUR die Zielplatte auswählen. Hintergrund:
 # Vault → Pavlonya OS → „Vorfall: Installer löschte alle EFI-Partitionen".
+# Der Eintrag im Firmware-Startmenü heißt „Pavlonya OS“ (bootupd liest
+# /etc/system-release des Images); das gilt erst für ISOs ab dem Bau vom 02.11.2026.
 
 # Vorgaben im Kickstart (im Installer weiterhin änderbar): Sprache Deutsch,
 # Tastatur de (mit Tottasten wie unter Pop!_OS — „nodeadkeys“ war falsch,

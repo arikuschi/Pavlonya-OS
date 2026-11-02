@@ -32,6 +32,13 @@ if command -v gtk-update-icon-cache > /dev/null; then
     gtk-update-icon-cache -q -f -t /usr/share/icons/hicolor
 fi
 cat /usr/lib/os-release
+# Eintrag im Firmware-Startmenü: bootupd benennt ihn bei der Installation nach
+# /etc/system-release (Text vor „release“) — mit Fedoras Datei hieß er „Fedora“
+# (02.11.2026). Eigene Datei statt Verweis auf fedora-release; $releasever und dnf
+# hängen am Paket fedora-release, nicht an diesem Text.
+rm -f /etc/system-release
+echo "Pavlonya OS release ${FEDORA_VERSION} (COSMIC)" > /etc/system-release
+grep -q '^Pavlonya OS release ' /etc/system-release
 
 # --- Startbild (Plymouth) -----------------------------------------------------
 # Logo mit Schriftzug und Fortschrittsbalken (Wunsch 24.10.2026). Die Bilder rendert

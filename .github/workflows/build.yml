@@ -83,7 +83,7 @@ jobs:
             grep -q "\.config/tabby" /usr/bin/pavlonya-wiederherstellen
             grep -q "^Aufruf: pavlonya-monitore-anwenden" <<< "$(/usr/libexec/pavlonya-monitore-anwenden 2>&1 || true)"
             grep -q "bluez5.enable-hw-volume = false" /usr/share/wireplumber/wireplumber.conf.d/51-pavlonya-bluetooth-lautstaerke.conf
-            bash -c 'source /usr/share/pavlonya-os/sicherung.sh && (( ${#SICHERUNG_HOME[@]} > 20 && ${#SICHERUNG_SYSTEM[@]} > 3 ))' && grep -q sicherung.sh /usr/libexec/pavlonya-backup /usr/bin/pavlonya-wiederherstellen
+            ( source /usr/share/pavlonya-os/sicherung.sh && (( ${#SICHERUNG_HOME[@]} > 20 && ${#SICHERUNG_SYSTEM[@]} > 3 )) ) && grep -q sicherung.sh /usr/libexec/pavlonya-backup /usr/bin/pavlonya-wiederherstellen   # Block steht in einfachen Anführungszeichen: keine hier
             rc=0; /usr/libexec/pavlonya-monitore-anwenden /usr/share/pavlonya-os/monitore.ron > /dev/null 2>&1 || rc=$?; test "${rc}" -eq 3   # gelesen, keine Sitzung
             test "$(cat /usr/share/cosmic/com.system76.CosmicIdle/v1/screen_off_time)" = "Some(1800000)"
             test "$(grep -c distrobox-fontconfig.conf /usr/share/pavlonya-os/distrobox.ini)" -eq 2

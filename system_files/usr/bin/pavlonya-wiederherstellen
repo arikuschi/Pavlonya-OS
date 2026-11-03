@@ -370,7 +370,24 @@ if [[ -n "${C_SNAP}" ]] && restic restore "${C_SNAP}:${C_HOME}" --target "${ARBE
         da+=("${e##*/}")
     done
     command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/.config/cosmic" "${HOMEDIR}/.local/state" 2> /dev/null
-    ERGEBNIS+=("COSMIC: ${#da[@]} von ${#COSMIC_EINSTELLUNGEN[@]} übernommen (${da[*]}) — Monitore nach dem Neustart")
+    ERGEBNIS+=("COSMIC: ${#da[@]} von ${#COSMIC_EINSTELLUNGEN[@]} übernommen (${da[*]})")
+    # Monitore: Eine laufende Sitzung überschreibt die Datei beim nächsten Ruhezustand
+    # oder Monitorwechsel mit ihrem Stand (Neuinstallation 02.11.2026, am 03.11. wieder
+    # 200 % und 60 Hz) — deshalb sofort in der Sitzung setzen, dann speichert COSMIC
+    # sie selbst. Danach die ganze Datei noch einmal, damit die Einträge für nur einen
+    # Monitor für den nächsten Start erhalten bleiben.
+    MON="${ARBEIT}/cosmic/.local/state/cosmic-comp/outputs.ron"
+    if [[ -e "${MON}" ]] && pgrep -u "${BENUTZER}" -x cosmic-comp > /dev/null; then
+        if setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
+                env XDG_RUNTIME_DIR="/run/user/$(id -u "${BENUTZER}")" \
+                /usr/libexec/pavlonya-monitore-anwenden "${MON}" > "${ARBEIT}/monitore.log" 2>&1; then
+            sleep 2
+            cp "${MON}" "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron"
+            ERGEBNIS+=("   Monitore: sofort eingestellt")
+        else
+            ERGEBNIS+=("   Monitore: nicht eingestellt ($(tail -1 "${ARBEIT}/monitore.log")) — von Hand mit cosmic-randr")
+        fi
+    fi
 else
     ERGEBNIS+=("COSMIC: Einstellungen nicht in der Sicherung")
 fi

@@ -1,0 +1,204 @@
+#!/usr/bin/python3 -I
+# pavlonya-monitore-anwenden — Monitor-Einstellung aus einer outputs.ron von COSMIC
+# in der laufenden Sitzung anwenden (03.11.2026).
+#
+# cosmic-comp liest ~/.local/state/cosmic-comp/outputs.ron nur beim Start und
+# schreibt seinen Stand bei jeder Änderung der Ausgänge (Ruhezustand, Monitor an/aus)
+# zurück. Eine unter der laufenden Sitzung zurückgeholte Datei geht so verloren:
+# Neuinstallation 02.11.2026, Wiederherstellung 20:23, Ruhezustand 20:59, am nächsten
+# Morgen wieder 4K links mit 200 % und 60 Hz. Wird die Einstellung dagegen live
+# gesetzt, speichert cosmic-comp sie selbst.
+#
+# Aufruf als Benutzer der Sitzung (XDG_RUNTIME_DIR gesetzt):
+#   pavlonya-monitore-anwenden <outputs.ron>
+# Nimmt den Eintrag, der genau zu den angeschlossenen Monitoren passt. Ohne passenden
+# Eintrag oder ohne Sitzung: Ende mit Code 2 bzw. 3, nichts geändert.
+# Einzelbefehle statt „cosmic-randr kdl“: kdl stellte am Laptop den 4K-Monitor
+# auf 60 Hz statt der angegebenen 144 Hz (03.11.2026).
+import glob
+import os
+import re
+import subprocess
+import sys
+import time
+
+
+# --- RON lesen (nur was outputs.ron braucht) -------------------------------------
+TOKEN = re.compile(r'\s*(?:(r#\w+|[A-Za-z_]\w*)|(-?\d+(?:\.\d+)?)|"((?:[^"\\]|\\.)*)"|(.))', re.S)
+
+
+def tokens(text):
+    pos = 0
+    while pos < len(text):
+        m = TOKEN.match(text, pos)
+        if not m or m.end() == pos:
+            break
+        pos = m.end()
+        name, zahl, text_, zeichen = m.groups()
+        if name is not None:
+            yield ("name", name.removeprefix("r#"))
+        elif zahl is not None:
+            yield ("zahl", float(zahl) if "." in zahl else int(zahl))
+        elif text_ is not None:
+            yield ("text", re.sub(r'\\(.)', r'\1', text_))
+        elif zeichen is not None and not zeichen.isspace():
+            yield ("zeichen", zeichen)
+
+
+class Leser:
+    def __init__(self, text):
+        self.t = list(tokens(text))
+        self.i = 0
+
+    def sieh(self):
+        return self.t[self.i] if self.i < len(self.t) else ("ende", None)
+
+    def nimm(self, zeichen=None):
+        tok = self.sieh()
+        if zeichen is not None and tok != ("zeichen", zeichen):
+            raise ValueError(f"erwartet {zeichen!r}, gefunden {tok!r}")
+        self.i += 1
+        return tok
+
+    def wert(self):
+        art, w = self.nimm()
+        if art in ("zahl", "text"):
+            return w
+        if art == "name":
+            if w in ("true", "false"):
+                return w == "true"
+            if w == "None":
+                return None
+            if self.sieh() == ("zeichen", "("):   # Some(x), Mirror("eDP-1") …
+                innen = self.folge(")")
+                return innen[0] if w == "Some" and len(innen) == 1 else (w, innen)
+            return w                              # Normal, Rotate90 …
+        if (art, w) == ("zeichen", "("):
+            return self.folge(")", offen=True)
+        if (art, w) == ("zeichen", "["):
+            return self.folge("]", offen=True)
+        if (art, w) == ("zeichen", "{"):
+            paare = []
+            while self.sieh() != ("zeichen", "}"):
+                k = self.wert()
+                self.nimm(":")
+                paare.append((k, self.wert()))
+                if self.sieh() == ("zeichen", ","):
+                    self.nimm()
+            self.nimm("}")
+            return paare
+        raise ValueError(f"unerwartet {(art, w)!r}")
+
+    def folge(self, ende, offen=False):
+        """Inhalt von ( … ) oder [ … ]: benannte Felder → dict, sonst Liste."""
+        if not offen:
+            self.nimm("(")
+        felder, liste = {}, []
+        while self.sieh() != ("zeichen", ende):
+            if self.sieh()[0] == "name" and self.t[self.i + 1:self.i + 2] == [("zeichen", ":")]:
+                k = self.nimm()[1]
+                self.nimm(":")
+                felder[k] = self.wert()
+            else:
+                liste.append(self.wert())
+            if self.sieh() == ("zeichen", ","):
+                self.nimm()
+        self.nimm(ende)
+        return felder if felder else liste
+
+
+# --- cosmic-randr ----------------------------------------------------------------
+def randr(*args, umgebung):
+    return subprocess.run(["cosmic-randr", *args], env=umgebung, capture_output=True, text=True)
+
+
+def sitzung_finden():
+    laufzeit = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    for sock in sorted(glob.glob(os.path.join(laufzeit, "wayland-*"))):
+        if sock.endswith(".lock"):
+            continue
+        umgebung = dict(os.environ, XDG_RUNTIME_DIR=laufzeit, WAYLAND_DISPLAY=os.path.basename(sock))
+        r = randr("list", "--kdl", umgebung=umgebung)
+        if r.returncode == 0 and "output " in r.stdout:
+            return umgebung, r.stdout
+    return None, None
+
+
+def angeschlossen(kdl):
+    """(Anschluss, Hersteller, Modell) aller Ausgänge, die cosmic-randr meldet."""
+    erg, name = [], None
+    for zeile in kdl.splitlines():
+        if m := re.match(r'output "([^"]+)"', zeile):
+            name = m.group(1)
+        elif name and (m := re.search(r'description make="([^"]*)" model="([^"]*)"', zeile)):
+            erg.append((name, m.group(1), m.group(2)))
+            name = None
+    return erg
+
+
+def befehl(*args, umgebung):
+    # Kommt der nächste Befehl, solange cosmic-comp den vorigen noch umsetzt,
+    # bricht er mit „configuration cancelled“ ab (Laptop 03.11.2026) — einmal neu.
+    for versuch in range(3):
+        r = randr(*args, umgebung=umgebung)
+        time.sleep(1)
+        if r.returncode == 0:
+            return True
+    print(f"cosmic-randr {' '.join(args)}: {(r.stderr or r.stdout).strip()}", file=sys.stderr)
+    return False
+
+
+TRANSFORM = {"Normal": "normal", "_90": "rotate90", "_180": "rotate180", "_270": "rotate270",
+             "Flipped": "flipped", "Flipped90": "flipped90", "Flipped180": "flipped180",
+             "Flipped270": "flipped270"}
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("Aufruf: pavlonya-monitore-anwenden <outputs.ron>", file=sys.stderr)
+        return 1
+    with open(sys.argv[1], encoding="utf-8") as f:
+        daten = Leser(f.read()).wert()
+    umgebung, kdl = sitzung_finden()
+    if umgebung is None:
+        print("keine laufende COSMIC-Sitzung gefunden", file=sys.stderr)
+        return 3
+    jetzt = sorted(angeschlossen(kdl))
+    for schluessel, einstellungen in daten.get("config", []):
+        ausgaenge = [(a["connector"], a["make"], a["model"]) for a in schluessel]
+        if sorted(ausgaenge) == jetzt and len(ausgaenge) == len(einstellungen):
+            break
+    else:
+        print(f"kein Eintrag für {', '.join(a[0] for a in jetzt)}", file=sys.stderr)
+        return 2
+
+    paare = list(zip(ausgaenge, einstellungen))
+    ok = True
+    # 1. Modus, Skalierung, Lage — wer vorher links stand, wird dabei verschoben,
+    #    solange sich zwei Bildschirme überlappen; deshalb danach 2. Lage erneut
+    for (name, _, _), e in paare:
+        if e.get("enabled") is False:
+            ok &= befehl("disable", name, umgebung=umgebung)
+            continue
+        if e.get("enabled") is not True:          # Spiegeln u. Ä.: nicht anfassen
+            continue
+        (breite, hoehe), refresh = e["mode"]
+        args = ["mode", "--scale", str(e.get("scale", 1.0)),
+                "--pos-x", str(e["position"][0]), "--pos-y", str(e["position"][1]),
+                "--transform", TRANSFORM.get(e.get("transform", "Normal"), "normal")]
+        if refresh:
+            args += ["--refresh", f"{refresh / 1000:.3f}"]
+        if "vrr" in e:
+            args += ["--adaptive-sync", "automatic" if e["vrr"] is True else "false"]
+        ok &= befehl(*args, name, str(breite), str(hoehe), umgebung=umgebung)
+    for (name, _, _), e in paare:
+        if e.get("enabled") is True:
+            ok &= befehl("position", name, *map(str, e["position"]), umgebung=umgebung)
+    primaer = [name for (name, _, _), e in paare if e.get("xwayland_primary") is True]
+    if primaer:
+        ok &= befehl("xwayland", "--primary", primaer[0], umgebung=umgebung)
+    return 0 if ok else 4
+
+
+if __name__ == "__main__":
+    sys.exit(main())

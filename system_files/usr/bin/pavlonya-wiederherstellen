@@ -2,25 +2,26 @@
 # pavlonya-wiederherstellen — Gerätedaten nach einer Neuinstallation aus dem
 # restic-Backup auf der TrueNAS zurückholen (13.10.2026).
 #
-# Holt aus der letzten Sicherung von pavlonya-os (gibt es keine: pop-os):
-#   - VPN-Verbindungen     /etc/NetworkManager/system-connections/
-#   - Backup-Einstellungen /etc/pavlonya-os/ (backup.conf, restic-passwort)
-#   - SSH-Schlüssel        ~/.ssh
-#   - Storage Box          sshfs-Zeilen aus /etc/fstab, SSH-Dateien von root
-#   - Drucker              /etc/cups (nur, wenn noch keiner eingerichtet ist)
-# Vorhandene Dateien werden NICHT überschrieben. Ausnahme: Monitore, Uhr, Tastatur
-# und Energie von COSMIC (COSMIC legt sie bei der ersten Anmeldung mit eigenen
-# Vorgaben an). Rechnername und Hardware-Uhr (UTC) werden gesetzt, falls nötig.
+# Holt alles aus der letzten Sicherung von pavlonya-os (Arikushi, 03.11.2026) —
+# was das ist, steht in /usr/share/pavlonya-os/sicherung.sh (gemeinsam mit
+# pavlonya-backup):
+#   - System: VPN und WLAN, Backup-Einstellungen, Storage Box (sshfs-Zeilen aus
+#     /etc/fstab, SSH-Dateien von root), Drucker — vorhandene NICHT überschrieben
+#   - Home: Daten, Programm-Einstellungen, COSMIC (Monitore, Uhr, Tastatur, Energie),
+#     Cryptomator — ÜBERSCHRIEBEN, die Programme müssen geschlossen sein; die
+#     Monitore werden sofort in der laufenden Sitzung eingestellt
+#   - Schlüsselbund samt Anmeldungen (Browser, Bitwarden, Claude Desktop, VS Code)
+#     nur auf Nachfrage; passt nur zum selben Anmeldekennwort wie vorher
+# Rechnername und Hardware-Uhr (UTC) werden gesetzt, falls nötig. Danach neu starten.
 #
-# Beim Umzug von Pop!_OS (Frage „Auch aus Pop!_OS übernehmen?“ → J), alles aus
-# EINER Pop!_OS-Sicherung (der neuesten):
-#   - Storage Box, Drucker, COSMIC-Einstellungen und Cryptomator-Tresorliste
-#   - Programm-Einstellungen (PROGRAMM_EINSTELLUNGEN unten), ohne Schlüsselbund
-#   - Daten und persönliche Einstellungen (DATEN unten), ohne Müll von Pop!_OS
-# Programm-Einstellungen und Daten werden ÜBERSCHRIEBEN; die Programme müssen dafür
-# geschlossen sein.
+# Am besten direkt nach der Ersteinrichtung starten, bevor Programme geöffnet werden.
 #
-# Aufruf:  sudo pavlonya-wiederherstellen [--host pavlonya-os|pop-os]
+# --host pop-os: alter Umzug aus der neuesten Pop!_OS-Sicherung (Programm-Einstellungen
+# nach PROGRAMM_EINSTELLUNGEN, Daten nach DATEN unten, ohne Schlüsselbund) — nur auf
+# ausdrücklichen Wunsch, sonst nie (03.11.2026).
+#
+# Aufruf:  sudo pavlonya-wiederherstellen [--probe] [--host pavlonya-os|pop-os]
+#   --probe  zeigt nur, was in der letzten Sicherung steckt — schreibt nichts
 # Fragt nach der TrueNAS-Adresse (Vault: „Homelab Pavlonya") und dem
 # restic-Kennwort (Bitwarden).
 set -uo pipefail
@@ -31,8 +32,18 @@ MNT=/var/mnt/pavlonya-wiederherstellen
 CONF_DIR=/etc/pavlonya-os
 NM_DIR=/etc/NetworkManager/system-connections
 WUNSCH_HOST=""
+PROBE=0
+# shellcheck disable=SC1091
+source /usr/share/pavlonya-os/sicherung.sh
 
-[[ "${1:-}" == "--host" ]] && WUNSCH_HOST="${2:-}"
+while (( $# > 0 )); do
+    case "$1" in
+        --host)  WUNSCH_HOST="${2:-}"; shift ;;
+        --probe) PROBE=1 ;;
+        *) echo "Aufruf: sudo pavlonya-wiederherstellen [--probe] [--host pavlonya-os|pop-os]"; exit 1 ;;
+    esac
+    shift
+done
 
 if [[ ${EUID} -ne 0 ]]; then
     echo "Bitte mit sudo starten:  sudo pavlonya-wiederherstellen"
@@ -49,8 +60,10 @@ HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
 echo "=== Pavlonya OS — Gerätedaten wiederherstellen (Benutzer ${BENUTZER}) ==="
 read -rp "TrueNAS-Adresse (IP, steht im Vault unter „Homelab Pavlonya“): " NAS
 read -rsp "restic-Kennwort (Bitwarden): " PASSWORT; echo
-echo "Sonst kommt alles aus der Sicherung von Pavlonya OS. Nur beim Umzug von Pop!_OS:"
-read -rp "Auch aus Pop!_OS übernehmen (Daten, Programm-Einstellungen, Storage Box, Cryptomator)? [J/n] " PROGRAMME
+# Umzug aus Pop!_OS nur auf ausdrücklichen Wunsch (--host pop-os), sonst immer die
+# letzte Sicherung von Pavlonya OS (Arikushi, 03.11.2026)
+PROGRAMME=n
+[[ "${WUNSCH_HOST}" == pop-os ]] && PROGRAMME=j
 
 GID="$(id -g "${BENUTZER}")"
 ARBEIT="$(mktemp -d /var/tmp/pavlonya-wiederherstellen.XXXX)"
@@ -62,6 +75,9 @@ aufraeumen() {
     rm -rf "${ARBEIT}"
 }
 trap aufraeumen EXIT
+# Die Probe soll nichts hinterlassen, auch keinen Zwischenspeicher von restic im Home
+CACHE="${HOMEDIR}/.cache/restic"
+(( PROBE )) && CACHE="${ARBEIT}/cache"
 
 mkdir -p "${MNT}"
 if ! mountpoint -q "${MNT}"; then
@@ -75,7 +91,7 @@ fi
 # die Dateien landen im Arbeitsordner und werden dann von root an ihren Platz gelegt
 restic() {
     setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
-        env HOME="${HOMEDIR}" RESTIC_CACHE_DIR="${HOMEDIR}/.cache/restic" \
+        env HOME="${HOMEDIR}" RESTIC_CACHE_DIR="${CACHE}" \
         RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}" RESTIC_PASSWORD_FILE="${ARBEIT}/pw" \
         /usr/bin/restic "$@"
 }
@@ -122,17 +138,50 @@ if ! restic cat config > "${ARBEIT}/check.log" 2>&1; then
     echo "(„wrong password“ = Kennwort falsch; „permission denied“ = Zugriffsrecht auf der TrueNAS)"
     exit 1
 fi
-if [[ -n "${WUNSCH_HOST}" ]]; then
-    HOST="${WUNSCH_HOST}"
-elif hat_snapshot pavlonya-os; then
-    HOST=pavlonya-os
-elif hat_snapshot pop-os; then
-    HOST=pop-os
-else
-    echo "Keine Sicherung von pavlonya-os oder pop-os gefunden."
+HOST="${WUNSCH_HOST:-pavlonya-os}"
+if ! hat_snapshot "${HOST}"; then
+    echo "Keine Sicherung von „${HOST}“ gefunden."
+    [[ "${HOST}" == pavlonya-os ]] && echo "(Alter Umzug aus Pop!_OS: sudo pavlonya-wiederherstellen --host pop-os)"
     exit 1
 fi
-echo "Hole aus der letzten Sicherung von „${HOST}“ …"
+# Eine Sicherung für alles — die letzte. „latest“ als Snapshot-ID, nicht „--latest 1“:
+# das liefert je Pfad-Gruppe eine, die älteste zuerst (am Repo 02.11.2026)
+SNAP_JSON="$(restic snapshots --host "${HOST}" latest --json 2> /dev/null)"
+SNAP="$(grep -o '"short_id":"[^"]*"' <<< "${SNAP_JSON}" | head -1 | cut -d'"' -f4)"
+SNAP_ZEIT="$(grep -o '"time":"[^"]*"' <<< "${SNAP_JSON}" | head -1 | cut -d'"' -f4 | cut -c1-16 | tr T ' ')"
+# Pfad des Homes in der Sicherung: der aus /etc/passwd zur Zeit der Sicherung, unter
+# Pavlonya OS /home/… (ein Verweis auf /var/home/…) — am 03.11.2026 suchte der
+# COSMIC-Teil fälschlich unter /var/home. Ältere Sicherungen: wo es steht.
+SNAP_HOME="/home/${BENUTZER}"
+if ! grep -q "\"/home/${BENUTZER}[\"/]" <<< "${SNAP_JSON}" \
+        && grep -q "\"/var/home/${BENUTZER}[\"/]" <<< "${SNAP_JSON}"; then
+    SNAP_HOME="/var/home/${BENUTZER}"
+fi
+echo "Letzte Sicherung von „${HOST}“: ${SNAP} vom ${SNAP_ZEIT}"
+
+# --- Probe: nur zeigen, was in der Sicherung steckt ------------------------------
+if (( PROBE )); then
+    WUNSCH=()
+    for p in "${SICHERUNG_HOME[@]}" "${SICHERUNG_SCHLUESSELBUND[@]}"; do WUNSCH+=("${SNAP_HOME}/${p}"); done
+    WUNSCH+=("${SICHERUNG_SYSTEM[@]}")
+    mapfile -t ORDNER < <(for p in "${WUNSCH[@]}"; do dirname "${p}"; done | sort -u)
+    restic ls --json "${SNAP}" "${ORDNER[@]}" > "${ARBEIT}/ls.json" 2> "${ARBEIT}/ls.log" \
+        || { echo "Sicherung nicht lesbar:"; tail -3 "${ARBEIT}/ls.log"; exit 1; }
+    echo "Größe beim Zurückholen: $(restic stats "${SNAP}" --mode restore-size 2> /dev/null | sed -n 's/^ *Total Size: *//p')"
+    da=0; fehlt=()
+    for p in "${WUNSCH[@]}"; do
+        if grep -qF "\"path\":\"${p}\"" "${ARBEIT}/ls.json"; then
+            echo "   ✓ ${p}"; da=$((da + 1))
+        else
+            echo "   ✗ ${p}"; fehlt+=("${p}")
+        fi
+    done
+    echo
+    echo "${da} von ${#WUNSCH[@]} in der Sicherung. Geschrieben wurde nichts."
+    (( ${#fehlt[@]} > 0 )) && echo "Fehlt etwas, das es auf dem Laptop gibt, ist die Sicherung unvollständig."
+    exit 0
+fi
+echo "Hole daraus zurück …"
 
 # Umzug: alles aus EINER Pop!_OS-Sicherung — Obsidian-Vault und Obsidian-Einstellungen
 # (lokale LiveSync-Datenbank) müssen zusammenpassen (geprüft 22.10.2026)
@@ -157,7 +206,7 @@ INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" --include /run/NetworkManag
 for h in "/home/${BENUTZER}" "/var/home/${BENUTZER}"; do
     INCL+=( --include "${h}/.ssh" )
 done
-restic restore latest --host "${HOST}" --target "${ARBEIT}/r" "${INCL[@]}" \
+restic restore "${SNAP}" --target "${ARBEIT}/r" "${INCL[@]}" \
     > "${ARBEIT}/restore.log" 2>&1 \
     || { echo "Wiederherstellen fehlgeschlagen:"; tail -5 "${ARBEIT}/restore.log"; exit 1; }
 
@@ -338,27 +387,123 @@ if [[ "$(timedatectl show -p LocalRTC --value 2> /dev/null)" == yes ]]; then
     timedatectl set-local-rtc 0 && ERGEBNIS+=("Hardware-Uhr: auf UTC umgestellt")
 fi
 
-# --- COSMIC: Monitore, Uhr, Tastatur, Energie ------------------------------------
+# --- Monitore sofort einstellen --------------------------------------------------
+# Eine laufende Sitzung überschreibt die Datei beim nächsten Ruhezustand oder
+# Monitorwechsel mit ihrem Stand (Neuinstallation 02.11.2026, am 03.11. wieder 200 %
+# und 60 Hz) — deshalb sofort in der Sitzung setzen, dann speichert COSMIC sie selbst.
+# Danach die ganze Datei noch einmal, damit die Einträge für nur einen Monitor für den
+# nächsten Start erhalten bleiben.
+monitore_einstellen() {  # monitore_einstellen <Kopie von outputs.ron>
+    local mon="$1"
+    [[ -e "${mon}" ]] && pgrep -u "${BENUTZER}" -x cosmic-comp > /dev/null || return 0
+    if setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
+            env XDG_RUNTIME_DIR="/run/user/$(id -u "${BENUTZER}")" \
+            /usr/libexec/pavlonya-monitore-anwenden "${mon}" > "${ARBEIT}/monitore.log" 2>&1; then
+        sleep 2
+        install -D -m644 -o "${BENUTZER}" -g "${GID}" "${mon}" "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron"
+        ERGEBNIS+=("   Monitore: sofort eingestellt")
+    else
+        ERGEBNIS+=("   Monitore: nicht eingestellt ($(tail -1 "${ARBEIT}/monitore.log")) — von Hand mit cosmic-randr")
+    fi
+}
+
+# --- Home aus der Sicherung von Pavlonya OS ---------------------------------------
+# Liste in /usr/share/pavlonya-os/sicherung.sh. Überschreibt — die Programme müssen
+# geschlossen sein. Der Schlüsselbund nur auf Nachfrage: Er passt nur zum selben
+# Anmeldekennwort; ohne ihn bleiben auch die damit verschlüsselten Anmeldungen weg
+# (Arikushi, 03.11.2026). Muster gelten relativ zum Home in der Sicherung.
+if [[ "${PROGRAMME,,}" == n* ]]; then
+    echo
+    echo "Schlüsselbund übernehmen? Dann bleibst du in Chrome, Chromium, Obsidian, Bitwarden,"
+    echo "Claude Desktop und VS Code angemeldet. Das passt nur, wenn das Anmeldekennwort"
+    echo "dasselbe ist wie vorher — sonst fragt er bei jeder Anmeldung nach dem alten."
+    read -rp "Schlüsselbund übernehmen? [J/n] " SCHLUESSELBUND
+    LISTE=("${SICHERUNG_HOME[@]}")
+    [[ "${SCHLUESSELBUND,,}" != n* ]] && LISTE+=("${SICHERUNG_SCHLUESSELBUND[@]}")
+    # Ordner einzeln (mit Fortschritt), Dateien in einem Aufruf: restic erlaubt beim
+    # Zurückholen --include und --exclude nicht zusammen (restic 0.19, Prüfstand
+    # 03.11.2026). Zwischenspeicher sind gar nicht erst in der Sicherung; ohne
+    # Schlüsselbund bleiben in den Programm-Ordnern Anmeldungen und Kennwortspeicher weg.
+    ORDNER=(); DATEIEN=()
+    mapfile -t ELTERN < <(for p in "${LISTE[@]}"; do dirname "${SNAP_HOME}/${p}"; done | sort -u)
+    restic ls --json "${SNAP}" "${ELTERN[@]}" > "${ARBEIT}/home-ls.json" 2>> "${ARBEIT}/home.log"
+    mapfile -t TYP < <(python3 -I -c '
+import json, sys
+typ = {}
+for zeile in open(sys.argv[1], encoding="utf-8"):
+    try:
+        o = json.loads(zeile)
+    except ValueError:
+        continue
+    if "path" in o and "type" in o:
+        typ[o["path"]] = o["type"]
+for p in sys.argv[3:]:
+    print(typ.get(sys.argv[2] + "/" + p, "-"))
+' "${ARBEIT}/home-ls.json" "${SNAP_HOME}" "${LISTE[@]}")
+    for i in "${!LISTE[@]}"; do
+        case "${TYP[i]:--}" in
+            dir) ORDNER+=("${LISTE[i]}") ;;
+            -)   ;;
+            *)   DATEIEN+=("${LISTE[i]}") ;;
+        esac
+    done
+    echo
+    echo "Bitte alle Programme schließen (Browser, Thunderbird, Obsidian, Zed, VS Code, Tabby …)."
+    read -rp "Weiter mit Enter … " _
+    echo "Daten und Einstellungen — bei vollem Home dauert das Stunden:"
+    fehler=(); i=0
+    for p in "${ORDNER[@]}"; do
+        EXCL=()
+        if [[ "${SCHLUESSELBUND,,}" == n* ]]; then
+            for o in "${PROGRAMM_ORDNER[@]}"; do
+                [[ "${p}" == "${o}"/* ]] || continue
+                for n in "${OHNE_OHNE_SCHLUESSELBUND[@]}"; do EXCL+=(--exclude "${n}"); done
+            done
+        fi
+        i=$((i + 1))
+        mit_fortschritt "[${i}/${#ORDNER[@]}] ${p}" "${ARBEIT}/home.log" \
+            "${SNAP}:${SNAP_HOME}/${p}" --target "${HOMEDIR}/${p}" "${EXCL[@]}" || fehler+=("${p}")
+    done
+    if (( ${#DATEIEN[@]} > 0 )); then
+        INCL=(); for p in "${DATEIEN[@]}"; do INCL+=(--include "/${p}"); done
+        mit_fortschritt "Einzelne Dateien (${#DATEIEN[@]})" "${ARBEIT}/home.log" \
+            "${SNAP}:${SNAP_HOME}" --target "${HOMEDIR}" "${INCL[@]}" || fehler+=("${DATEIEN[@]}")
+    fi
+    fehlt=(); for p in "${LISTE[@]}"; do [[ -e "${HOMEDIR}/${p}" ]] || fehlt+=("${p}"); done
+    ERGEBNIS+=("Home: $(( ${#LISTE[@]} - ${#fehlt[@]} )) von ${#LISTE[@]} Einträgen übernommen")
+    (( ${#fehler[@]} > 0 )) && ERGEBNIS+=("   FEHLER bei: ${fehler[*]} — $(grep -v '^\s*$' "${ARBEIT}/home.log" | tail -1)")
+    (( ${#fehlt[@]} > 0 )) && ERGEBNIS+=("   nicht in der Sicherung: ${fehlt[*]}")
+    if [[ "${SCHLUESSELBUND,,}" != n* ]]; then
+        ERGEBNIS+=("   Schlüsselbund: übernommen — fragt er nach dem Neustart, zurück zum frischen:"
+                   "     rm -rf ~/.local/share/keyrings, dann neu starten")
+    else
+        ERGEBNIS+=("   Schlüsselbund: nicht übernommen — Browser, Bitwarden, Claude, VS Code neu anmelden")
+    fi
+    if [[ -e "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron" ]]; then
+        cp "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron" "${ARBEIT}/outputs.ron"
+        monitore_einstellen "${ARBEIT}/outputs.ron"
+    fi
+    # Benutzer-Timer (Forgejo-Dump) laufen auch ohne Anmeldung
+    if compgen -G "${HOMEDIR}/.config/systemd/user/*.timer" > /dev/null; then
+        loginctl enable-linger "${BENUTZER}" 2> /dev/null && ERGEBNIS+=("   Benutzer-Timer: laufen auch ohne Anmeldung")
+    fi
+    command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/" 2> /dev/null
+fi
+
+# --- COSMIC aus Pop!_OS (nur --host pop-os) ---------------------------------------
 # COSMIC legt sie bei der ersten Anmeldung mit eigenen Vorgaben an (4K-Monitor mit
 # 200 % und 60 Hz, Reihenfolge falsch, Uhr AM/PM — 02.11.2026), deshalb werden sie
-# ersetzt. Aussehen (Leiste, Dock, Farben) kommt weiter aus dem Image. Quelle wie
-# oben: beim Umzug Pop!_OS, sonst die Sicherung von Pavlonya OS.
+# ersetzt. Aussehen (Leiste, Dock, Farben) kommt weiter aus dem Image.
 COSMIC_EINSTELLUNGEN=(
     .local/state/cosmic-comp/outputs.ron                # Monitore
     .config/cosmic/com.system76.CosmicAppletTime        # Uhr 24 h, Wochenbeginn
     .config/cosmic/com.system76.CosmicComp/v1/xkb_config  # Tastatur
     .config/cosmic/com.system76.CosmicIdle              # Bildschirm aus, Bereitschaft
 )
-if [[ "${PROGRAMME,,}" != n* ]]; then
-    C_SNAP="${POP_SNAP}"; C_HOME="/home/${BENUTZER}"
-else
-    # „latest“ als Snapshot-ID wie bei POP_SNAP — „--latest 1“ liefert die älteste zuerst
-    C_SNAP="$(restic snapshots --host "${HOST}" latest --json 2> /dev/null \
-        | grep -o '"short_id":"[^"]*"' | head -1 | cut -d'"' -f4)"
-    C_HOME="/var/home/${BENUTZER}"; [[ "${HOST}" == pop-os ]] && C_HOME="/home/${BENUTZER}"
-fi
 INCL=(); for e in "${COSMIC_EINSTELLUNGEN[@]}"; do INCL+=(--include "/${e}"); done
-if [[ -n "${C_SNAP}" ]] && restic restore "${C_SNAP}:${C_HOME}" --target "${ARBEIT}/cosmic" \
+if [[ "${PROGRAMME,,}" == n* ]]; then
+    :   # Pavlonya OS: kommt oben mit dem Home
+elif restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${ARBEIT}/cosmic" \
         "${INCL[@]}" >> "${ARBEIT}/programme.log" 2>&1; then
     da=()
     for e in "${COSMIC_EINSTELLUNGEN[@]}"; do
@@ -371,23 +516,7 @@ if [[ -n "${C_SNAP}" ]] && restic restore "${C_SNAP}:${C_HOME}" --target "${ARBE
     done
     command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/.config/cosmic" "${HOMEDIR}/.local/state" 2> /dev/null
     ERGEBNIS+=("COSMIC: ${#da[@]} von ${#COSMIC_EINSTELLUNGEN[@]} übernommen (${da[*]})")
-    # Monitore: Eine laufende Sitzung überschreibt die Datei beim nächsten Ruhezustand
-    # oder Monitorwechsel mit ihrem Stand (Neuinstallation 02.11.2026, am 03.11. wieder
-    # 200 % und 60 Hz) — deshalb sofort in der Sitzung setzen, dann speichert COSMIC
-    # sie selbst. Danach die ganze Datei noch einmal, damit die Einträge für nur einen
-    # Monitor für den nächsten Start erhalten bleiben.
-    MON="${ARBEIT}/cosmic/.local/state/cosmic-comp/outputs.ron"
-    if [[ -e "${MON}" ]] && pgrep -u "${BENUTZER}" -x cosmic-comp > /dev/null; then
-        if setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
-                env XDG_RUNTIME_DIR="/run/user/$(id -u "${BENUTZER}")" \
-                /usr/libexec/pavlonya-monitore-anwenden "${MON}" > "${ARBEIT}/monitore.log" 2>&1; then
-            sleep 2
-            cp "${MON}" "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron"
-            ERGEBNIS+=("   Monitore: sofort eingestellt")
-        else
-            ERGEBNIS+=("   Monitore: nicht eingestellt ($(tail -1 "${ARBEIT}/monitore.log")) — von Hand mit cosmic-randr")
-        fi
-    fi
+    monitore_einstellen "${ARBEIT}/cosmic/.local/state/cosmic-comp/outputs.ron"
 else
     ERGEBNIS+=("COSMIC: Einstellungen nicht in der Sicherung")
 fi
@@ -525,5 +654,13 @@ echo
 echo "=== Ergebnis (Quelle: ${HOST}) ==="
 printf ' - %s\n' "${ERGEBNIS[@]}"
 echo
-echo "Danach neu starten — erst dann gelten die Monitor-Einstellungen."
-echo "Backup jetzt einmal testen:  sudo systemctl start pavlonya-backup && cat /var/lib/pavlonya-os/backup-status"
+echo "Nach dem Neustart das Backup einmal testen:"
+echo "   sudo systemctl start pavlonya-backup && cat /var/lib/pavlonya-os/backup-status"
+echo
+# Sofort neu starten: Die laufende Sitzung hält noch den Schlüsselbund der Neuinstallation
+# und würde ihn bei der nächsten Änderung über den zurückgeholten schreiben
+read -rp "Jetzt neu starten (empfohlen, vorher nichts mehr öffnen)? [J/n] " NEUSTART
+if [[ "${NEUSTART,,}" != n* ]]; then
+    aufraeumen; trap - EXIT
+    systemctl reboot
+fi

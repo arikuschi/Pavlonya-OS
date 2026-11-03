@@ -1,6 +1,8 @@
 #!/usr/bin/bash
 # Tägliches Backup mit restic auf die TrueNAS (per NFS).
 # Einstellungen und Kennwort: /etc/pavlonya-os/backup.conf (nicht im Image).
+# Was gesichert wird: /usr/share/pavlonya-os/sicherung.sh (im Image, gemeinsam mit
+# pavlonya-wiederherstellen).
 # Ergebnis: /var/lib/pavlonya-os/backup-status — die Anmeldung warnt, wenn das
 # letzte Backup fehlgeschlagen oder älter als 3 Tage ist.
 set -uo pipefail
@@ -18,7 +20,14 @@ status() {  # status <ok|fehler> <text>
 
 # shellcheck disable=SC1090
 source "${CONF}" || { status fehler "Einstellungen ${CONF} fehlen oder sind fehlerhaft"; exit 1; }
+# Listen aus einer alten backup.conf gelten nicht mehr
+unset HOME_PFADE SYSTEM_PFADE AUSSCHLUESSE
+[[ -n "${BEHALTEN[*]:-}" ]] || BEHALTEN=( --keep-daily 7 --keep-weekly 4 )
+# shellcheck disable=SC1091
+source /usr/share/pavlonya-os/sicherung.sh
 
+# Das Home steht in den Sicherungen unter dem Pfad aus /etc/passwd (/home/…, ein
+# Verweis auf /var/home/…) — dort sucht auch die Wiederherstellung
 HOMEDIR="$(getent passwd "${BENUTZER}" | cut -d: -f6)"
 GID="$(id -g "${BENUTZER}")"
 
@@ -32,14 +41,13 @@ als_benutzer() {
         RESTIC_PASSWORD_FILE="${PASSWORT_DATEI}" "$@"
 }
 PFADE=()
-for p in "${HOME_PFADE[@]}"; do
+for p in "${SICHERUNG_HOME[@]}" "${SICHERUNG_SCHLUESSELBUND[@]}"; do
     [[ -e "${HOMEDIR}/${p}" ]] && PFADE+=("${HOMEDIR}/${p}")
 done
-for p in "${SYSTEM_PFADE[@]}"; do
+for p in "${SICHERUNG_SYSTEM[@]}"; do
     [[ -e "${p}" ]] && PFADE+=("${p}")
 done
-EXCL=()
-for e in "${AUSSCHLUESSE[@]}"; do EXCL+=(--exclude "${e}"); done
+mapfile -d '' -t EXCL < <(ohne_muster "${HOMEDIR}" "${OHNE_IMMER[@]}")
 
 # NFS selbst einhängen, damit die Adresse nur in der lokalen Einstellung steht
 mkdir -p "${MNT}"
@@ -61,7 +69,10 @@ if [[ ${RC} -ne 0 && ${RC} -ne 3 ]]; then
     exit 1
 fi
 
-als_benutzer restic forget --host "${HOST}" "${BEHALTEN[@]}" --prune \
+# --group-by host: alle Sicherungen dieses Rechners zählen gemeinsam. restic gruppiert
+# sonst nach der Pfadliste — jede geänderte Liste blieb als eigene Gruppe für immer
+# liegen (am 03.11.2026 vier Gruppen); Pop!_OS macht es schon so
+als_benutzer restic forget --host "${HOST}" --group-by host "${BEHALTEN[@]}" --prune \
     || { status fehler "restic forget/prune fehlgeschlagen — journalctl -u pavlonya-backup"; exit 1; }
 
 if [[ ${RC} -eq 3 ]]; then

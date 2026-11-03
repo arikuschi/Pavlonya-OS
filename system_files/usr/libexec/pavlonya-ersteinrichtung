@@ -96,6 +96,31 @@ fi
 
 [[ -e "${DONE}" ]] && exit 0
 
+# --- nur bei der Ersteinrichtung nach einer Neuinstallation, nicht nach einem Update ---
+# (Arikushi, 03.11.2026) — auf einem schon eingerichteten Laptop steht der Merker
+# „fertig“, dann endet das Skript oben.
+
+# Energie EINMAL übernehmen wie das Aussehen: Bildschirm aus nach 30 min, am Netz kein
+# Ruhezustand (Arikushi, 03.11.2026; Laptop hängt immer am Netz)
+ENERGIE_MERKER="${STATE}/energie-v1"
+if [[ ! -e "${ENERGIE_MERKER}" ]]; then
+    mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/cosmic/com.system76.CosmicIdle/v1"
+    cp -f /usr/share/cosmic/com.system76.CosmicIdle/v1/* \
+        "${XDG_CONFIG_HOME:-$HOME/.config}/cosmic/com.system76.CosmicIdle/v1/"
+    touch "${ENERGIE_MERKER}"
+fi
+
+# Monitore EINMAL einstellen, wenn genau der 4K-Monitor und das Laptop-Display
+# angeschlossen sind — COSMIC nimmt sonst 60 Hz, 200 % und die falsche Reihenfolge
+# (Neuinstallation 02.11.2026). Live in der Sitzung, dann speichert COSMIC sie selbst;
+# eine Datei vorher hinzulegen hält nicht (03.11.2026). Andere Monitore: nichts, beim
+# nächsten Anmelden erneut geprüft.
+MONITORE_MERKER="${STATE}/monitore-v1"
+if [[ ! -e "${MONITORE_MERKER}" ]] \
+        && /usr/libexec/pavlonya-monitore-anwenden /usr/share/pavlonya-os/monitore.ron >> "${LOG}" 2>&1; then
+    touch "${MONITORE_MERKER}"
+fi
+
 # App-IDs aus der Liste (Zeile = „<id>“ oder „<quelle> <id>“)
 mapfile -t APPS < <(sed -E 's/#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//; /^$/d' "${LIST}" | awk '{print $NF}')
 TOTAL=${#APPS[@]}
@@ -212,6 +237,9 @@ if box_exists dev; then
 else
     ok=0
 fi
+
+# Daten und Einstellungen kommen getrennt zurück (TrueNAS-Adresse und Kennwort nötig)
+msg+="\n\nDaten und Einstellungen aus der letzten Sicherung zurückholen —\nim Terminal, bevor Programme geöffnet werden:\n<tt>sudo pavlonya-wiederherstellen</tt>"
 
 if (( ok )); then
     touch "${DONE}"

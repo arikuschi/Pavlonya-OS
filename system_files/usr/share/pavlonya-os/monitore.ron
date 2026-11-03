@@ -1,0 +1,41 @@
+// Monitor-Anordnung am Laptop: 4K-Monitor rechts mit 144 Hz und 125 %, Laptop-Display
+// links unten mit 144 Hz (Arikushi, 03.11.2026). Die Ersteinrichtung stellt sie einmal
+// ein, wenn genau diese beiden angeschlossen sind (pavlonya-monitore-anwenden) — COSMIC
+// nimmt sonst 60 Hz, 200 % und die falsche Reihenfolge. Nur Hersteller und Modell,
+// keine Seriennummer. Format wie ~/.local/state/cosmic-comp/outputs.ron.
+(
+    config: {
+        [
+            (
+                connector: "HDMI-A-1",
+                make: "Iiyama North America",
+                model: "PL3261UH",
+            ),
+            (
+                connector: "eDP-1",
+                make: "AU Optronics",
+                model: "0x978F",
+            ),
+        ]: [
+            (
+                mode: ((3840, 2160), Some(144002)),
+                vrr: r#false,
+                scale: 1.25,
+                transform: Normal,
+                position: (1920, 0),
+                enabled: r#true,
+                xwayland_primary: true,
+            ),
+            (
+                mode: ((1920, 1080), Some(144028)),
+                vrr: r#true,
+                scale: 1.0,
+                transform: Normal,
+                position: (0, 648),
+                enabled: r#true,
+                max_bpc: Some(16),
+                xwayland_primary: false,
+            ),
+        ],
+    },
+)

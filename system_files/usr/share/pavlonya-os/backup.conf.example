@@ -16,24 +16,8 @@ HOST="pavlonya-os"
 # Benutzer, dessen Home gesichert wird
 BENUTZER="arikushi"
 
-# Was gesichert wird (relativ zum Home des Benutzers), wie unter Pop!_OS
-HOME_PFADE=(
-    Dokumente Bilder Schreibtisch Videos Musik
-    .ssh .gnupg .config .var/app .bashrc .profile .thunderbird .vscode
-    .local/share/keyrings .local/share/applications .local/share/Cryptomator
-    .local/share/onlyoffice .pki
-    .local/state/cosmic-comp
-)
-# Systempfade
-# (/var/roothome/.ssh: Schlüssel von root für die Storage Box, 30.10.2026;
-#  /etc/cups: Drucker, .local/state/cosmic-comp oben: Monitore, 02.11.2026)
-SYSTEM_PFADE=( /etc/fstab /etc/hosts /etc/NetworkManager /etc/pavlonya-os /var/roothome/.ssh /etc/cups )
-
-AUSSCHLUESSE=(
-    "*/.var/app/*/cache"
-    "*/.var/app/com.valvesoftware.Steam"
-    "*/.var/app/ru.linux_gaming.PortProton"
-)
+# Was gesichert wird, steht im Image: /usr/share/pavlonya-os/sicherung.sh (03.11.2026).
+# HOME_PFADE, SYSTEM_PFADE und AUSSCHLUESSE in dieser Datei gelten nicht mehr.
 
 # Aufbewahrung (nur Sicherungen dieses Rechners)
 BEHALTEN=( --keep-daily 7 --keep-weekly 4 )

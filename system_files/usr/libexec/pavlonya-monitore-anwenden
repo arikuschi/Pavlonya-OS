@@ -158,7 +158,8 @@ def main():
         print("Aufruf: pavlonya-monitore-anwenden <outputs.ron>", file=sys.stderr)
         return 1
     with open(sys.argv[1], encoding="utf-8") as f:
-        daten = Leser(f.read()).wert()
+        # Kommentarzeilen (// …) wie in /usr/share/pavlonya-os/monitore.ron
+        daten = Leser(re.sub(r"(?m)^\s*//.*$", "", f.read())).wert()
     umgebung, kdl = sitzung_finden()
     if umgebung is None:
         print("keine laufende COSMIC-Sitzung gefunden", file=sys.stderr)

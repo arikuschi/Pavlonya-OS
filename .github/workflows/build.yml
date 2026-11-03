@@ -81,6 +81,7 @@ jobs:
             test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup
             grep -q "\.config/tabby" /usr/bin/pavlonya-wiederherstellen
             grep -q "^Aufruf: pavlonya-monitore-anwenden" <<< "$(/usr/libexec/pavlonya-monitore-anwenden 2>&1 || true)"
+            grep -q "bluez5.enable-hw-volume = false" /usr/share/wireplumber/wireplumber.conf.d/51-pavlonya-bluetooth-lautstaerke.conf
             test "$(grep -c distrobox-fontconfig.conf /usr/share/pavlonya-os/distrobox.ini)" -eq 2
             nicht grep -q "Fontconfig error" <<< "$(FONTCONFIG_FILE=/usr/share/pavlonya-os/distrobox-fontconfig.conf fc-list 2>&1)"
             for p in gdm gnome-shell mutter rygel breeze-icon-theme localsearch python3-botocore toolbox ModemManager atheros-firmware; do nicht rpm -q "$p" > /dev/null; done   # nichts Ungenutztes (keine Empfehlungen)

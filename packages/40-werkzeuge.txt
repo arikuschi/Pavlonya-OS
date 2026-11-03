@@ -2,6 +2,8 @@
 # 10.10.2026, Abgleich im Vault: Pavlonya OS → Programmauswahl).
 
 git
+gh                          # GitHub-Anmeldung für git push (03.11.2026; .gitconfig
+                            # aus Pop!_OS verweist auf /usr/bin/gh)
 rsync
 restic
 smartmontools

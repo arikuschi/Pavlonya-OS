@@ -180,6 +180,8 @@ rpm -q zram-generator > /dev/null && test -x /usr/lib/systemd/system-generators/
 grep -qx 'zram-size = ram' /usr/lib/systemd/zram-generator.conf
 test "$(systemctl is-enabled lm_sensors.service)" = disabled
 test ! -e /etc/xdg/autostart/nvidia-settings-load.desktop
+# Kein Regler „Tastaturbeleuchtung“ ohne LED-Gerät (04.11.2026)
+grep -q 'send_interface="org.freedesktop.UPower.KbdBacklight"' /etc/dbus-1/system.d/90-pavlonya-ohne-tastaturlicht.conf
 test -f /usr/share/wayland-sessions/cosmic.desktop
 # COSMIC-Vorgabe für die Tastatur: gilt für jeden Benutzer ohne eigene Einstellung
 # und damit auch für den Anmeldebildschirm (der liest die Einstellung des Benutzers)

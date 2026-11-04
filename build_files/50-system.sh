@@ -158,6 +158,9 @@ for f in pavlonya.plymouth watermark.png entry.png bullet.png lock.png; do
     test -s "/usr/share/plymouth/themes/pavlonya/${f}"
 done
 grep -q '"rhgb"' /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml
+# zram als Swap (04.11.2026): eigene Vorgabe, zram-generator-defaults fehlt ohne weak deps
+rpm -q zram-generator > /dev/null && test -x /usr/lib/systemd/system-generators/zram-generator
+grep -qx 'zram-size = ram' /usr/lib/systemd/zram-generator.conf
 test -f /usr/share/wayland-sessions/cosmic.desktop
 # COSMIC-Vorgabe für die Tastatur: gilt für jeden Benutzer ohne eigene Einstellung
 # und damit auch für den Anmeldebildschirm (der liest die Einstellung des Benutzers)

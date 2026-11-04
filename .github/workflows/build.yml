@@ -68,6 +68,7 @@ jobs:
             grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
             test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service
             rpm -q upower
+            rpm -q zram-generator && grep -qx "zram-size = ram" /usr/lib/systemd/zram-generator.conf   # Swap im Arbeitsspeicher
             rpm -q gh && test -x /usr/bin/gh
             grep -q "pgrep -x plymouthd" /usr/lib/systemd/system/cosmic-greeter.service.d/10-pavlonya-plymouth-ende.conf && nicht test -e /usr/lib/systemd/system/cosmic-greeter.service.d/10-pavlonya-warten.conf
             grep -qx "ExecStart=-/usr/bin/plymouth quit --retain-splash" /usr/lib/systemd/system/plymouth-quit.service.d/10-pavlonya-logo-behalten.conf && grep -q quiet /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml

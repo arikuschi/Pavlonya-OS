@@ -49,6 +49,14 @@ install -m644 /tmp/startbild/*.png /usr/share/plymouth/themes/pavlonya/
 plymouth-set-default-theme pavlonya
 test "$(plymouth-set-default-theme)" = pavlonya
 
+# --- Hintergrundbild -----------------------------------------------------------
+# Logo mit Schriftzug auf dunklem Grund (Wunsch 04.11.2026), gerendert in der Baustufe
+# „startbild“. Die Vorgabe in system_files (com.system76.CosmicBackground) gilt für
+# jeden Benutzer ohne eigene Einstellung; wer einen anderen wählt, behält ihn.
+install -Dm644 /tmp/startbild/hintergrund/pavlonya-os.png /usr/share/backgrounds/pavlonya/pavlonya-os.png
+grep -q 'Path("/usr/share/backgrounds/pavlonya/pavlonya-os.png")' \
+    /usr/share/cosmic/com.system76.CosmicBackground/v1/all
+
 # --- Sitzung erst nach dem Anmeldebildschirm ------------------------------------
 # COSMIC startet über pavlonya-cosmic-starten: wartet, bis der Anmeldebildschirm
 # bei logind abgemeldet ist, sonst bleibt manchmal das Laptop-Display dunkel

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3840 2160" width="3840" height="2160">
+  <!-- Pavlonya OS — Hintergrundbild (dunkel), Farben aus dem Logo „Ring-P“.
+       Gerendert in startbild/build.sh, Vorgabe für COSMIC in
+       system_files/usr/share/cosmic/com.system76.CosmicBackground/v1/all -->
+  <defs>
+    <linearGradient id="grund" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1024"/>
+      <stop offset="0.55" stop-color="#0c1230"/>
+      <stop offset="1" stop-color="#121a48"/>
+    </linearGradient>
+    <linearGradient id="verlauf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3cc6d6"/>
+      <stop offset="1" stop-color="#4a5bd4"/>
+    </linearGradient>
+    <linearGradient id="verlauf-motiv" gradientUnits="userSpaceOnUse" x1="40" y1="40" x2="220" y2="320">
+      <stop offset="0" stop-color="#3cc6d6"/>
+      <stop offset="1" stop-color="#4a5bd4"/>
+    </linearGradient>
+    <radialGradient id="glanz-cyan" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#3cc6d6" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3cc6d6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glanz-blau" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#4a5bd4" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#4a5bd4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0.6" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.45"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Grund und Lichtflecken -->
+  <rect width="3840" height="2160" fill="url(#grund)"/>
+  <ellipse cx="700" cy="350" rx="1500" ry="1100" fill="url(#glanz-cyan)"/>
+  <ellipse cx="3300" cy="1900" rx="1700" ry="1200" fill="url(#glanz-blau)"/>
+
+  <!-- Großes Ring-P als Motiv, rechts angeschnitten -->
+  <g transform="translate(2280 -80) scale(7.2)" fill="none" stroke="url(#verlauf-motiv)" opacity="0.10">
+    <path d="M84 300V104" stroke-width="26" stroke-linecap="round"/>
+    <circle cx="128" cy="104" r="44" stroke-width="26"/>
+  </g>
+
+  <!-- Konzentrische Ringe um das Logo -->
+  <g fill="none" stroke="url(#verlauf)">
+    <circle cx="1920" cy="960" r="290" stroke-width="3" opacity="0.30"/>
+    <circle cx="1920" cy="960" r="390" stroke-width="2" opacity="0.15"/>
+  </g>
+
+  <!-- Logo, 256 → 384 px -->
+  <g transform="translate(1728 768) scale(1.5)">
+    <circle cx="128" cy="128" r="128" fill="url(#verlauf)"/>
+    <path d="M84 196V104" fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+    <circle cx="128" cy="104" r="44" fill="none" stroke="#ffffff" stroke-width="26"/>
+  </g>
+
+  <!-- Schriftzug -->
+  <text x="1920" y="1500" text-anchor="middle" font-family="Open Sans" font-size="150" letter-spacing="10">
+    <tspan font-weight="300" fill="#e8ecff">Pavlonya</tspan><tspan font-weight="600" fill="url(#verlauf)" dx="40">OS</tspan>
+  </text>
+
+  <rect width="3840" height="2160" fill="url(#vignette)"/>
+</svg>

@@ -56,4 +56,11 @@ for f in GenuineIntel.bin gsp_tu10x.bin ucodes_tu10x.bin; do
         exit 1
     fi
 done
+# NFS-Dienste starteten in der initramfs und meldeten Fehler (dracut.conf.d/91-pavlonya-ohne-nfs.conf)
+for f in rpcbind rpc.statd rpc.idmapd; do
+    if grep -qE "/${f}$" <<< "${INITRD}"; then
+        echo "FEHLER: ${f} ist in der initramfs" >&2
+        exit 1
+    fi
+done
 head -1 <<< "${INITRD}"

@@ -137,6 +137,15 @@ for unit in nvidia-suspend.service nvidia-resume.service nvidia-hibernate.servic
     fi
 done
 
+# lm_sensors.service lädt nur Treiber aus /etc/sysconfig/lm_sensors (von
+# sensors-detect, hier leer) und setzt Grenzwerte aus sensors3.conf (keine). Die
+# Sensor-Treiber lädt der Kernel selbst, „sensors“ geht ohne den Dienst (04.11.2026).
+systemctl disable lm_sensors.service
+
+# NVIDIA-Einstellungen aus ~/.nvidia-settings-rc gelten nur für X11; unter Wayland
+# scheiterte der Autostart bei jeder Anmeldung (04.11.2026). Das Programm bleibt.
+rm -f /etc/xdg/autostart/nvidia-settings-load.desktop
+
 # Automatische Updates mit Neustart aus — Updates werden nur bereitgelegt
 # (pavlonya-update.timer) und beim nächsten Neustart aktiv.
 systemctl disable bootc-fetch-apply-updates.timer 2>/dev/null || true
@@ -161,6 +170,8 @@ grep -q '"rhgb"' /usr/lib/bootc/kargs.d/10-pavlonya-startbild.toml
 # zram als Swap (04.11.2026): eigene Vorgabe, zram-generator-defaults fehlt ohne weak deps
 rpm -q zram-generator > /dev/null && test -x /usr/lib/systemd/system-generators/zram-generator
 grep -qx 'zram-size = ram' /usr/lib/systemd/zram-generator.conf
+test "$(systemctl is-enabled lm_sensors.service)" = disabled
+test ! -e /etc/xdg/autostart/nvidia-settings-load.desktop
 test -f /usr/share/wayland-sessions/cosmic.desktop
 # COSMIC-Vorgabe für die Tastatur: gilt für jeden Benutzer ohne eigene Einstellung
 # und damit auch für den Anmeldebildschirm (der liest die Einstellung des Benutzers)

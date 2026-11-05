@@ -23,21 +23,6 @@ FEDORA="$(rpm -E %fedora)"
 #   qemu-user-static*        fremde CPU-Architekturen in Containern (~179 MB), nur Empfehlung von podman
 #   default-fonts-cjk, google-noto-*-cjk-*   chinesische/japanische/koreanische Schriften (~122 MB)
 #   NetworkManager-cloud-setup   Einrichtung von Cloud-Servern
-# Entschlacken (05.11.2026, je Paket geprüft: nichts Installiertes verlangt es,
-# „rpm -e --test“ am Laptop ohne Fehler; Gründe in der Vault-Notiz Systemübersicht):
-#   WALinuxAgent-udev, cloud-utils-growpart   Azure bzw. Cloud-VM-Partition vergrößern
-#   kdump-utils kexec-tools makedumpfile memstrack dracut-squash squashfs-tools
-#                            Speicherabbild bei Kernel-Absturz (kdump war aus)
-#   clevis* luksmeta jose libjose dracut-network
-#                            LUKS per TPM/Netzwerk entsperren — keine Platte verschlüsselt
-#   adcli sssd-*             Anmeldung im Firmennetz (AD, LDAP) — nur lokale Konten
-#   lvm2 lvm2-libs device-mapper-persistent-data kpartx   LVM — keine Platte mit LVM
-#   stalld criu criu-libs kmscon   Echtzeit-Server, Container einfrieren, andere Textkonsole
-#   console-login-helper-messages*   Hinweise in der Textkonsole
-#   chunkah                  Abbilder aufteilen — der Bau nutzt das aus fedora-bootc
-# Bewusst behalten: socat, nilfs-utils, f2fs-tools, udftools, xfsprogs (Arikushi, 05.11.2026);
-# tpm2-tools, weil fedora-bootc das dracut-Modul tpm2-tss verlangt, und das braucht
-# „tpm2“ (Bau 0fd577f brach sonst ab)
 BASIS_RAUS=(
     python3-boto3 python3-botocore toolbox sos sg3_utils
     ModemManager libqmi libmbim NetworkManager-wwan
@@ -45,14 +30,6 @@ BASIS_RAUS=(
     intel-gpu-firmware intel-audio-firmware intel-npu-firmware cirrus-audio-firmware qcom-wwan-firmware
     nvidia-gpu-firmware microcode_ctl "qemu-user-static*" NetworkManager-cloud-setup
     default-fonts-cjk "google-noto-*-cjk-*"
-    WALinuxAgent-udev cloud-utils-growpart
-    kdump-utils kexec-tools makedumpfile memstrack dracut-squash squashfs-tools
-    clevis clevis-dracut clevis-luks clevis-pin-tpm2 clevis-systemd luksmeta jose libjose dracut-network
-    adcli sssd-ad sssd-client sssd-common sssd-common-pac sssd-ipa sssd-krb5 sssd-krb5-common sssd-ldap sssd-nfs-idmap
-    lvm2 lvm2-libs device-mapper-persistent-data kpartx
-    stalld criu criu-libs kmscon
-    console-login-helper-messages console-login-helper-messages-issuegen console-login-helper-messages-profile
-    chunkah
 )
 dnf -y remove --no-autoremove "${BASIS_RAUS[@]}"
 

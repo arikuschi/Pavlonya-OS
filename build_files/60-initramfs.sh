@@ -63,12 +63,4 @@ for f in rpcbind rpc.statd rpc.idmapd; do
         exit 1
     fi
 done
-# Gruppen und Benutzer in der initramfs auflösbar (05.11.2026): nsswitch.conf mit
-# altfiles, sonst meldet udev „Unknown group“ (dracut.conf.d/92-pavlonya-entschlackt.conf)
-for f in etc/nsswitch.conf etc/authselect/nsswitch.conf usr/lib/group usr/lib64/libnss_altfiles.so.2; do
-    grep -qE " ${f}( |$)" <<< "${INITRD}" || { echo "FEHLER: ${f} fehlt in der initramfs" >&2; exit 1; }
-done
-NSS="$(lsinitrd -f etc/authselect/nsswitch.conf "/usr/lib/modules/${KVER}/initramfs.img")"
-grep -Eq '^group:.*altfiles' <<< "${NSS}" || {
-    echo "FEHLER: nsswitch.conf in der initramfs ohne altfiles" >&2; exit 1; }
 head -1 <<< "${INITRD}"

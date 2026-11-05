@@ -35,6 +35,11 @@ org.blender.Blender
 org.gimp.GIMP
 com.rawtherapee.RawTherapee
 
+# Medien: Videos (auch Musik zur Not), Fotos, Musik (05.11.2026)
+io.github.celluloid_player.Celluloid
+org.gnome.Shotwell
+io.bassi.Amberol
+
 # Gaming
 ru.linux_gaming.PortProton
 

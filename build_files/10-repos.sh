@@ -28,14 +28,16 @@ FEDORA="$(rpm -E %fedora)"
 #   WALinuxAgent-udev, cloud-utils-growpart   Azure bzw. Cloud-VM-Partition vergrößern
 #   kdump-utils kexec-tools makedumpfile memstrack dracut-squash squashfs-tools
 #                            Speicherabbild bei Kernel-Absturz (kdump war aus)
-#   clevis* luksmeta jose libjose tpm2-tools dracut-network
+#   clevis* luksmeta jose libjose dracut-network
 #                            LUKS per TPM/Netzwerk entsperren — keine Platte verschlüsselt
 #   adcli sssd-*             Anmeldung im Firmennetz (AD, LDAP) — nur lokale Konten
 #   lvm2 lvm2-libs device-mapper-persistent-data kpartx   LVM — keine Platte mit LVM
 #   stalld criu criu-libs kmscon   Echtzeit-Server, Container einfrieren, andere Textkonsole
 #   console-login-helper-messages*   Hinweise in der Textkonsole
 #   chunkah                  Abbilder aufteilen — der Bau nutzt das aus fedora-bootc
-# Bewusst behalten: socat, nilfs-utils, f2fs-tools, udftools, xfsprogs (Arikushi, 05.11.2026)
+# Bewusst behalten: socat, nilfs-utils, f2fs-tools, udftools, xfsprogs (Arikushi, 05.11.2026);
+# tpm2-tools, weil fedora-bootc das dracut-Modul tpm2-tss verlangt, und das braucht
+# „tpm2“ (Bau 0fd577f brach sonst ab)
 BASIS_RAUS=(
     python3-boto3 python3-botocore toolbox sos sg3_utils
     ModemManager libqmi libmbim NetworkManager-wwan
@@ -45,7 +47,7 @@ BASIS_RAUS=(
     default-fonts-cjk "google-noto-*-cjk-*"
     WALinuxAgent-udev cloud-utils-growpart
     kdump-utils kexec-tools makedumpfile memstrack dracut-squash squashfs-tools
-    clevis clevis-dracut clevis-luks clevis-pin-tpm2 clevis-systemd luksmeta jose libjose tpm2-tools dracut-network
+    clevis clevis-dracut clevis-luks clevis-pin-tpm2 clevis-systemd luksmeta jose libjose dracut-network
     adcli sssd-ad sssd-client sssd-common sssd-common-pac sssd-ipa sssd-krb5 sssd-krb5-common sssd-ldap sssd-nfs-idmap
     lvm2 lvm2-libs device-mapper-persistent-data kpartx
     stalld criu criu-libs kmscon

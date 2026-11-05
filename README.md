@@ -1,7 +1,7 @@
 # Pavlonya OS
 
 Eigenes Fedora-Atomic-Image (bootc) mit COSMIC für den Acer Nitro AN517-41.
-Planung, Entscheidungen und Stand: Obsidian-Vault, Notiz **Pavlonya OS**.
+Notiz **Pavlonya OS**.
 
 ## Aufbau
 

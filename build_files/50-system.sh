@@ -158,6 +158,19 @@ rm -f /etc/xdg/autostart/nvidia-settings-load.desktop
 # (pavlonya-update.timer) und beim nächsten Neustart aktiv.
 systemctl disable bootc-fetch-apply-updates.timer 2>/dev/null || true
 
+# Nichts an Fedora melden (Arikushi, 05.11.2026): rpm-ostree-countme schickte jede
+# Woche einen anonymen Zähler an mirrors.fedoraproject.org. Gesperrt statt nur
+# abgeschaltet, damit keine Vorgabe ihn wieder einschaltet; countme=0 zusätzlich,
+# falls rpm-ostree oder dnf die Repo-Dateien sonst lesen.
+systemctl mask rpm-ostree-countme.timer rpm-ostree-countme.service
+sed -i 's/^countme=1/countme=0/' /etc/yum.repos.d/*.repo
+# Ungenutzte Dienste aus Paketen, die bleiben müssen (05.11.2026):
+#   systemd-homed  mitnehmbare Home-Verzeichnisse (Teil von systemd-udev) — keine
+#                  Home-Areas, PAM nutzt pam_systemd_home nicht
+#   mdmonitor, raid-check   Software-RAID (mdadm verlangt udisks2) — kein RAID
+systemctl mask systemd-homed.service systemd-homed-activate.service \
+    mdmonitor.service raid-check.timer
+
 # fedora-bootc ist ein Server-Image: ohne das startet kein Login-Bildschirm
 systemctl set-default graphical.target
 if [[ ! -L /etc/systemd/system/display-manager.service ]]; then
@@ -180,6 +193,13 @@ rpm -q zram-generator > /dev/null && test -x /usr/lib/systemd/system-generators/
 grep -qx 'zram-size = ram' /usr/lib/systemd/zram-generator.conf
 test "$(systemctl is-enabled lm_sensors.service)" = disabled
 test ! -e /etc/xdg/autostart/nvidia-settings-load.desktop
+# Entschlackt und ohne Meldung an Fedora (05.11.2026)
+for u in rpm-ostree-countme.timer systemd-homed.service mdmonitor.service raid-check.timer; do
+    test "$(systemctl is-enabled "${u}" 2>&1)" = masked
+done
+if grep -q '^countme=1' /etc/yum.repos.d/*.repo; then exit 1; fi
+if grep -rqE 'pam_systemd_home|pam_sss' /etc/pam.d/; then exit 1; fi
+if grep -qw sss /etc/nsswitch.conf; then exit 1; fi
 # Kein Regler „Tastaturbeleuchtung“ ohne LED-Gerät (04.11.2026)
 grep -q 'send_interface="org.freedesktop.UPower.KbdBacklight"' /etc/dbus-1/system.d/90-pavlonya-ohne-tastaturlicht.conf
 test -f /usr/share/wayland-sessions/cosmic.desktop

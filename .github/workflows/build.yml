@@ -68,6 +68,7 @@ jobs:
             grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
             test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service
             rpm -q upower
+            rpm -q ffmpegthumbnailer libavcodec-freeworld && test -f /usr/share/thumbnailers/ffmpegthumbnailer.thumbnailer && ldd /usr/lib64/libffmpegthumbnailer.so.4 | grep -q "/usr/lib64/ffmpeg/libavcodec"   # Video-Vorschau mit H.264/HEVC
             grep -q "<deny send_destination=\"org.freedesktop.UPower\"" /etc/dbus-1/system.d/90-pavlonya-ohne-tastaturlicht.conf && grep -q "send_interface=\"org.freedesktop.UPower.KbdBacklight\"/>" /etc/dbus-1/system.d/90-pavlonya-ohne-tastaturlicht.conf && xmllint --noout /etc/dbus-1/system.d/90-pavlonya-ohne-tastaturlicht.conf   # kein Regler Tastaturbeleuchtung
             rpm -q zram-generator && grep -qx "zram-size = ram" /usr/lib/systemd/zram-generator.conf   # Swap im Arbeitsspeicher
             test "$(systemctl is-enabled lm_sensors.service)" = disabled && nicht test -e /etc/xdg/autostart/nvidia-settings-load.desktop && test -x /usr/bin/sensors && test -x /usr/bin/nvidia-settings

@@ -44,3 +44,9 @@ cups-filters
 system-config-printer
 sane-airscan
 simple-scan
+
+# Vorschaubilder für Videos in COSMIC Dateien (05.11.2026). COSMIC Dateien nutzt
+# Thumbnailer aus /usr/share/thumbnailers; Fedoras libavcodec kann H.264/HEVC
+# nicht dekodieren, die Fassung aus RPM Fusion schon.
+ffmpegthumbnailer
+libavcodec-freeworld        # RPM Fusion free

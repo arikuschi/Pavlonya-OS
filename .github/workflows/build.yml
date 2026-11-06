@@ -88,6 +88,7 @@ jobs:
             grep -q "\.config/tabby" /usr/bin/pavlonya-wiederherstellen
             grep -q "^Aufruf: pavlonya-monitore-anwenden" <<< "$(/usr/libexec/pavlonya-monitore-anwenden 2>&1 || true)"
             grep -q "bluez5.enable-hw-volume = false" /usr/share/wireplumber/wireplumber.conf.d/51-pavlonya-bluetooth-lautstaerke.conf
+            test -L /etc/systemd/user/wireplumber.service.wants/pavlonya-bt-audio-verbinden.service && test -x /usr/libexec/pavlonya-bt-audio-verbinden && test -x /usr/bin/bluetoothctl   # Lautsprecher nach der Anmeldung verbinden
             ( source /usr/share/pavlonya-os/sicherung.sh && (( ${#SICHERUNG_HOME[@]} > 20 && ${#SICHERUNG_SYSTEM[@]} > 3 )) ) && grep -q sicherung.sh /usr/libexec/pavlonya-backup /usr/bin/pavlonya-wiederherstellen   # Block steht in einfachen Anführungszeichen: keine hier
             rc=0; /usr/libexec/pavlonya-monitore-anwenden /usr/share/pavlonya-os/monitore.ron > /dev/null 2>&1 || rc=$?; test "${rc}" -eq 3   # gelesen, keine Sitzung
             test "$(cat /usr/share/cosmic/com.system76.CosmicIdle/v1/screen_off_time)" = "Some(1800000)"

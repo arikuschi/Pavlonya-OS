@@ -130,6 +130,9 @@ systemctl enable \
 
 # Für jeden Benutzer: Distroboxen täglich aktualisieren (läuft nach der Anmeldung)
 systemctl --global enable pavlonya-distrobox-upgrade.timer
+# Für jeden Benutzer: Bluetooth-Lautsprecher verbinden, sobald WirePlumber läuft —
+# beim Start meldet er sich zu früh und wird abgelehnt (06.11.2026)
+systemctl --global enable pavlonya-bt-audio-verbinden.service
 
 # NVIDIA: VRAM über Standby und Ruhezustand retten
 # Welche Units es gibt, hängt von der Treiberversion bzw. Paketierung ab —
@@ -190,6 +193,9 @@ test ! -e /etc/xdg/autostart/nvidia-settings-load.desktop
 # Keine Meldung an Fedora (05.11.2026)
 test "$(systemctl is-enabled rpm-ostree-countme.timer 2>&1)" = masked
 if grep -q '^countme=1' /etc/yum.repos.d/*.repo; then exit 1; fi
+# Bluetooth-Lautsprecher nach der Anmeldung verbinden (06.11.2026)
+test -L /etc/systemd/user/wireplumber.service.wants/pavlonya-bt-audio-verbinden.service
+test -x /usr/libexec/pavlonya-bt-audio-verbinden && bash -n /usr/libexec/pavlonya-bt-audio-verbinden
 # Kein Regler „Tastaturbeleuchtung“ ohne LED-Gerät (04.11.2026)
 grep -q 'send_interface="org.freedesktop.UPower.KbdBacklight"' /etc/dbus-1/system.d/90-pavlonya-ohne-tastaturlicht.conf
 test -f /usr/share/wayland-sessions/cosmic.desktop

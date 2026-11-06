@@ -1,0 +1,30 @@
+#!/bin/bash
+# pavlonya-bt-audio-verbinden — gekoppelte Bluetooth-Lautsprecher und -Kopfhörer nach
+# dem Start von WirePlumber verbinden (06.11.2026).
+#
+# Ein eingeschalteter Lautsprecher meldet sich beim Start, bevor PipeWire/WirePlumber
+# mit der Anmeldung laufen; BlueZ lehnt ab („a2dp-sink profile connect failed:
+# Protocol not available“). Danach baut keiner die Verbindung auf: WirePlumber
+# verbindet keine Geräte, BlueZ nur nach einem Verbindungsabbruch. Mäuse und
+# Tastaturen (Bluetooth LE) sind nicht betroffen und werden hier übergangen.
+#
+# Gestartet von pavlonya-bt-audio-verbinden.service (Benutzerdienst, WantedBy=
+# wireplumber.service). Ist ein Gerät aus, steht „nicht erreichbar“ im Journal.
+
+sleep 3   # WirePlumber meldet die A2DP-Endpunkte erst kurz nach dem eigenen Start an
+
+for mac in $(bluetoothctl devices Paired | awk '{print $2}'); do
+    info=$(bluetoothctl info "$mac")
+    grep -q "Audio Sink" <<<"$info" || continue      # nur Lautsprecher/Kopfhörer
+    grep -q "Connected: yes" <<<"$info" && continue  # schon verbunden
+    name=$(sed -n 's/^\s*Name: //p' <<<"$info")
+    for versuch in 1 2 3; do
+        if bluetoothctl --timeout 15 connect "$mac" 2>&1 | grep -q "Connection successful"; then
+            echo "$name ($mac) verbunden, Versuch $versuch"
+            continue 2
+        fi
+        sleep 5
+    done
+    echo "$name ($mac) nicht erreichbar (aus oder außer Reichweite)"
+done
+exit 0

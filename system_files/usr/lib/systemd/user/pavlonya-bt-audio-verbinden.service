@@ -1,0 +1,10 @@
+[Unit]
+Description=Pavlonya OS: Bluetooth-Lautsprecher nach dem Start von WirePlumber verbinden
+After=wireplumber.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/pavlonya-bt-audio-verbinden
+
+[Install]
+WantedBy=wireplumber.service

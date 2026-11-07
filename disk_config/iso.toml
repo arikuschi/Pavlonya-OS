@@ -11,6 +11,7 @@
 # Tastatur de (mit Tottasten wie unter Pop!_OS — „nodeadkeys“ war falsch,
 # 02.11.2026), Zeitzone Berlin, Hardware-Uhr in UTC (ohne --utc stellt der
 # Kickstart sie auf Ortszeit; Entscheidung UTC 25.10.2026).
+# %post: Zeitquelle nur per DHCP, siehe Kommentar dort.
 #
 # Root-Konto und Benutzer bleiben beide frei wählbar (10.10.2026).
 # Anaconda verlangt nur eines von beiden; fehlt der Benutzer, legt
@@ -21,6 +22,15 @@ graphical
 lang de_DE.UTF-8
 keyboard --vckeymap=de --xlayouts='de'
 timezone Europe/Berlin --utc
+%post
+# Anaconda ersetzt die Pool-Zeile durch „server _gateway iburst“. DHCP liefert
+# denselben Router (MikroTik) noch einmal → chronyd meldet bei jedem Start
+# „Already in use“. Zeitquelle bleibt nur die per DHCP (Arikushi, 07.11.2026).
+for f in /etc/chrony.conf /ostree/deploy/*/deploy/*/etc/chrony.conf; do
+    [ -f "$f" ] && sed -i '/^# These servers were defined in the installation:$/d; /^server _gateway iburst$/d' "$f"
+done
+true
+%end
 """
 
 [customizations.installer.modules]

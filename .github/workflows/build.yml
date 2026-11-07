@@ -12,7 +12,8 @@ on:
 
 env:
   IMAGE_NAME: pavlonya-os
-  FEDORA_VERSION: "44"
+  # Neueste Fedora-Version: bekommt zusätzlich den Tag „latest“
+  FEDORA_NEUESTE: "45"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,6 +22,15 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    # Beim Versionswechsel beide bauen: der Laptop folgt dem Tag seiner Version
+    # (:44) und bekäme sonst keine Updates mehr, bis er mit bootc switch auf :45
+    # umgestellt ist. Danach die alte Version aus der Liste nehmen.
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: ["44", "45"]
+    env:
+      FEDORA_VERSION: ${{ matrix.fedora }}
     permissions:
       contents: read
       packages: write
@@ -127,7 +137,9 @@ jobs:
         run: |
           set -euo pipefail
           echo "${REGISTRY_PASSWORD}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          for TAG in "${FEDORA_VERSION}" "${FEDORA_VERSION}-$(date -u +%Y%m%d)" latest; do
+          TAGS=( "${FEDORA_VERSION}" "${FEDORA_VERSION}-$(date -u +%Y%m%d)" )
+          if [[ "${FEDORA_VERSION}" == "${FEDORA_NEUESTE}" ]]; then TAGS+=( latest ); fi
+          for TAG in "${TAGS[@]}"; do
             sudo podman push --digestfile /tmp/digest "localhost/${IMAGE_NAME}:chunked" "docker://${IMAGE_REF}:${TAG}"
           done
           echo "DIGEST=$(cat /tmp/digest)" >> "$GITHUB_ENV"

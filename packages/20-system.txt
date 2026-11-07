@@ -37,7 +37,7 @@ gvfs
 gvfs-mtp
 gvfs-smb
 gvfs-fuse
-gvfs-archive
+gvfs-archive [bis 44]    # Fedora 45: in gvfs 1.61 abgeschafft
 
 # Sprache: nur Deutsch und Englisch
 glibc-langpack-de

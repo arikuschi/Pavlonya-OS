@@ -7,6 +7,11 @@ for f in /etc/yum.repos.d/rpmfusion-*.repo /etc/yum.repos.d/vscode.repo /etc/yum
     [[ -f "$f" ]] && sed -i 's/^enabled=1/enabled=0/' "$f"
 done
 
+# /usr/local/sbin fehlt im bootc-Grundabbild; die tmpfiles-Regel von rpm-ostree will es
+# anlegen und meldet bei jedem Start „Read-only file system“. Ordner, kein Verweis auf bin:
+# den lehnt dieselbe Regel mit „is not a directory“ ab (im Container getestet).
+mkdir -p /usr/local/sbin
+
 cat > /usr/lib/pavlonya-os-release <<REL
 FEDORA_VERSION=${FEDORA_VERSION}
 BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)

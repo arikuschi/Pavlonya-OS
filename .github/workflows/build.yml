@@ -127,7 +127,7 @@ jobs:
           sudo podman inspect "localhost/${IMAGE_NAME}:chunked" --format '{{json .Labels}}'
           test "$(sudo podman inspect "localhost/${IMAGE_NAME}:chunked" --format '{{index .Labels "containers.bootc"}}')" = 1
           sudo podman run --rm "localhost/${IMAGE_NAME}:chunked" bash -c \
-            '! rpm -q python3-botocore gdm && test ! -e /usr/lib/python3*/site-packages/botocore && cat /usr/lib/pavlonya-os-release'
+            '! rpm -q python3-botocore gdm && test ! -e /usr/lib/python3*/site-packages/botocore && test -d /usr/local/sbin && cat /usr/lib/pavlonya-os-release'
           sudo podman images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep "${IMAGE_NAME}"
 
       - name: Hochladen

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 69" width="150" height="69">
+  <!-- Anaconda-Seitenleiste: Logo „Ring-P“ in Weiß mit Schriftzug, auf dem Verlauf
+       Cyan → Blau aus fedora.css. Maße wie Fedoras sidebar-logo.png (150×69). -->
+  <circle cx="75" cy="21" r="20" fill="#ffffff"/>
+  <g transform="translate(55,1) scale(0.15625)">
+    <path d="M84 196V104" fill="none" stroke="#4a5bd4" stroke-width="26" stroke-linecap="round"/>
+    <circle cx="128" cy="104" r="44" fill="none" stroke="#4a5bd4" stroke-width="26"/>
+  </g>
+  <text x="75" y="63" text-anchor="middle" font-family="Open Sans" font-weight="600"
+        font-size="15" fill="#ffffff">Pavlonya OS</text>
+</svg>

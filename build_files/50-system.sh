@@ -167,7 +167,11 @@ systemctl disable bootc-fetch-apply-updates.timer 2>/dev/null || true
 # abgeschaltet, damit keine Vorgabe ihn wieder einschaltet; countme=0 zusätzlich,
 # falls rpm-ostree oder dnf die Repo-Dateien sonst lesen.
 systemctl mask rpm-ostree-countme.timer rpm-ostree-countme.service
-sed -i 's/^countme=1/countme=0/' /etc/yum.repos.d/*.repo
+# Repo-Dateien: Fedora bis 44 unter /etc/yum.repos.d, ab 45 unter /usr/share/dnf5/repos.d
+shopt -s nullglob
+REPOS=(/etc/yum.repos.d/*.repo /usr/share/dnf5/repos.d/*.repo)
+shopt -u nullglob
+sed -i 's/^countme=1/countme=0/' "${REPOS[@]}"
 
 # fedora-bootc ist ein Server-Image: ohne das startet kein Login-Bildschirm
 systemctl set-default graphical.target
@@ -193,7 +197,8 @@ test "$(systemctl is-enabled lm_sensors.service)" = disabled
 test ! -e /etc/xdg/autostart/nvidia-settings-load.desktop
 # Keine Meldung an Fedora (05.11.2026)
 test "$(systemctl is-enabled rpm-ostree-countme.timer 2>&1)" = masked
-if grep -q '^countme=1' /etc/yum.repos.d/*.repo; then exit 1; fi
+if grep -q '^countme=1' "${REPOS[@]}"; then exit 1; fi
+grep -q '^countme=0' "${REPOS[@]}"   # Fedora-Quellen gefunden und geändert
 # Bluetooth-Lautsprecher nach der Anmeldung verbinden (06.11.2026)
 test -L /etc/systemd/user/wireplumber.service.wants/pavlonya-bt-audio-verbinden.service
 test -x /usr/libexec/pavlonya-bt-audio-verbinden && bash -n /usr/libexec/pavlonya-bt-audio-verbinden

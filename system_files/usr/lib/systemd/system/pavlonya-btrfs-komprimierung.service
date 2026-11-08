@@ -1,0 +1,22 @@
+# Anaconda schreibt compress=zstd:1 nur in /etc/fstab. Bei btrfs gelten die
+# Optionen aber für die ganze Platte und kommen vom ersten Einhängen — das ist
+# bei bootc die Wurzel über die Startparameter (rootflags=subvol=…, ohne compress).
+# Das compress der fstab kam deshalb nie an (am Laptop 07.11.2026 belegt).
+# Ein Remount von /var/home schaltet die Komprimierung für alle Subvolumes ein,
+# unabhängig vom Namen, den Anaconda vergibt (am Laptop getestet 08.11.2026).
+# Gilt nur für neu geschriebene Daten.
+[Unit]
+Description=Pavlonya OS: btrfs-Komprimierung zstd:1 einschalten
+DefaultDependencies=no
+RequiresMountsFor=/var/home
+Before=local-fs.target
+ConditionPathIsMountPoint=/var/home
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecCondition=/usr/bin/sh -c 'test "$(findmnt -no FSTYPE /var/home)" = btrfs'
+ExecStart=/usr/bin/mount -o remount,compress=zstd:1 /var/home
+
+[Install]
+WantedBy=local-fs.target

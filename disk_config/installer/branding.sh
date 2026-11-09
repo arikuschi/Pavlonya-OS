@@ -9,8 +9,8 @@
 #
 # Abhilfe auf dem von Anaconda vorgesehenen Weg: images/product.img (cpio, gzip) —
 # Anaconda legt ihren Inhalt beim Start über das Installer-System. Dazu mit mkksiso
-# den Datenträgernamen ändern und „quiet“ setzen: die Meldungen der initramfs
-# („Fedora Linux … dracut“) erreicht die product.img nicht.
+# den Datenträgernamen ändern. „quiet“ setzt bootc-image-builder selbst; die Meldungen
+# der initramfs („Fedora Linux … dracut“) erreicht die product.img nicht.
 set -euo pipefail
 ISO="$1"; VER="$2"
 SRC=/src
@@ -57,7 +57,7 @@ mkdir -p images
 (cd $P && find . | cpio -o -H newc --quiet | gzip -9) > images/product.img
 echo "product.img:"; zcat images/product.img | cpio -it --quiet | sort
 
-mkksiso -a images -V "Pavlonya-OS-${VER}" -c quiet "$ISO" neu.iso
+mkksiso -a images -V "Pavlonya-OS-${VER}" "$ISO" neu.iso
 chown --reference="$ISO" neu.iso   # Besitzer wie vorher, nicht root
 mv -f neu.iso "$ISO"
 rm -rf "$T"

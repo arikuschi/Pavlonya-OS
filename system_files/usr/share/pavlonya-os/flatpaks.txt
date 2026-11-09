@@ -39,6 +39,8 @@ com.rawtherapee.RawTherapee
 io.github.celluloid_player.Celluloid
 org.gnome.Shotwell
 io.bassi.Amberol
+# IPTV (M3U und Xtream, Daten bleiben lokal), 09.11.2026
+dev.fredol.open-tv
 
 # Gaming
 ru.linux_gaming.PortProton

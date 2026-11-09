@@ -7,7 +7,7 @@
 # Aufbau: README.md. Paketlisten: packages/*.txt. Flatpaks:
 # system_files/usr/share/pavlonya-os/flatpaks.txt
 
-ARG FEDORA_VERSION=44
+ARG FEDORA_VERSION=45
 ARG KERNEL_FLAVOR=main
 
 # Vorgebaute nvidia-open-Module samt passendem Kernel (Universal Blue)

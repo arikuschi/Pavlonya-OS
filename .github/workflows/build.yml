@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fedora: ["44", "45"]
+        fedora: ["45"]
     env:
       FEDORA_VERSION: ${{ matrix.fedora }}
     permissions:

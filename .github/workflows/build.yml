@@ -104,6 +104,7 @@ jobs:
             rc=0; /usr/libexec/pavlonya-monitore-anwenden /usr/share/pavlonya-os/monitore.ron > /dev/null 2>&1 || rc=$?; test "${rc}" -eq 3   # gelesen, keine Sitzung
             test "$(cat /usr/share/cosmic/com.system76.CosmicIdle/v1/screen_off_time)" = "Some(1800000)"
             test "$(grep -c distrobox-fontconfig.conf /usr/share/pavlonya-os/distrobox.ini)" -eq 2
+            grep -qx "countme=0" /usr/share/pavlonya-os/dnf-ohne-countme.repo && grep -q "dnf-ohne-countme.repo /etc/dnf/repos.override.d/" /usr/share/pavlonya-os/distrobox.ini && nicht grep -q "\*\.repo" /usr/share/pavlonya-os/distrobox.ini   # Box dev: kein countme, kein Dateimuster
             nicht grep -q "Fontconfig error" <<< "$(FONTCONFIG_FILE=/usr/share/pavlonya-os/distrobox-fontconfig.conf fc-list 2>&1)"
             for p in gdm gnome-shell mutter rygel breeze-icon-theme localsearch python3-botocore toolbox ModemManager atheros-firmware; do nicht rpm -q "$p" > /dev/null; done   # nichts Ungenutztes (keine Empfehlungen)
             for p in nvidia-gpu-firmware microcode_ctl qemu-user-static qemu-user-static-aarch64 default-fonts-cjk google-noto-sans-cjk-vf-fonts xorg-x11-nvidia nvidia-xconfig NetworkManager-cloud-setup; do nicht rpm -q "$p" > /dev/null; done   # Prüfung gegen die Hardware 30.10.2026

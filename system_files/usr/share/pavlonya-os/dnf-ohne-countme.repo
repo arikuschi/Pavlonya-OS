@@ -1,0 +1,6 @@
+# Kein wöchentlicher Zähler an Fedora bei dnf (Arikushi, 05.11.2026).
+# dnf5-Override für alle Quellen, egal wo deren Dateien liegen (bis Fedora 44
+# /etc/yum.repos.d, ab 45 /usr/share/dnf5/repos.d) und auch wenn ein Update sie
+# ersetzt. Die Box „dev“ kopiert die Datei beim Start nach /etc/dnf/repos.override.d/.
+[*]
+countme=0

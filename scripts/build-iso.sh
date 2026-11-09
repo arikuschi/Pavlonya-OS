@@ -8,6 +8,10 @@ cd "$(dirname "$0")/.."
 IMAGE="${1:-localhost/pavlonya-os:45}"
 mkdir -p output
 [[ "${IMAGE}" == localhost/* ]] || sudo podman pull "${IMAGE}"
+# Fedora-Version aus dem Image (Label „45.20261107.0“ → 45) — vor dem langen Bau, solange
+# sudo noch nicht wieder nach dem Kennwort fragt
+VER="$(sudo podman inspect --format '{{index .Labels "org.opencontainers.image.version"}}' "${IMAGE}" | cut -d. -f1)"
+[[ -n "${VER}" ]]
 sudo podman run --rm -it --privileged --pull=newer \
     --security-opt label=type:unconfined_t \
     -v ./output:/output \
@@ -21,6 +25,6 @@ sudo podman run --rm -it --privileged --pull=newer \
 TAG="${IMAGE##*:}"
 mv -f output/bootiso/install.iso "output/pavlonya-os-${TAG}.iso"
 rm -rf output/bootiso
-# Fedora-Version aus dem Image (Label „45.20261107.0“ → 45)
-VER="$(sudo podman inspect --format '{{index .Labels "org.opencontainers.image.version"}}' "${IMAGE}" | cut -d. -f1)"
+# Fragt sudo hier nach dem Kennwort und läuft die Zeit ab, fehlt nur das Branding — nachholen mit
+#   sudo scripts/installer-branding.sh output/pavlonya-os-<tag>.iso <version>
 sudo scripts/installer-branding.sh "output/pavlonya-os-${TAG}.iso" "${VER}"

@@ -74,6 +74,7 @@ jobs:
             nicht rpm -q fedora-logos
             for v in /usr/lib/efi/shim/*/EFI/fedora; do test -s "$v/shimx64.efi"; nicht test -e "$v/shim.efi"; iconv -f UTF-16LE -t UTF-8 "$v/BOOTX64.CSV" | grep -q ",Pavlonya OS,"; done
             grep -q "numlock_state: BootOn" /usr/share/cosmic/com.system76.CosmicComp/v1/keyboard_config
+            grep -q "selected_text:" /usr/share/cosmic/com.system76.CosmicTheme.Dark/v2/list_button && test "$(cat /usr/share/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom)" = "{}"   # Anmeldebildschirm: list_button fehlt bei Fedora; leere eigene Kürzel
             test -x /usr/lib/opt/Tabby/tabby || test -x /opt/Tabby/tabby
             grep -q "${0}" /etc/containers/policy.json && grep -q sigstoreSigned /etc/containers/policy.json
             test ! -e /usr/lib/systemd/system/pavlonya-signiert-umstellen.service

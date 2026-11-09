@@ -30,6 +30,14 @@ for f in /etc/chrony.conf /ostree/deploy/*/deploy/*/etc/chrony.conf; do
     [ -f "$f" ] && sed -i '/^# These servers were defined in the installation:$/d; /^server _gateway iburst$/d' "$f"
 done
 true
+# Anaconda schreibt „/“ in die fstab; bei bootc ist „/“ composefs und lässt sich nicht neu
+# einhängen — systemd-remount-fs meldet bei jedem Start einen Fehler. Anaconda lässt die
+# Zeile ab PR #7393 (06.11.2026) selbst weg; bis dahin hier auskommentieren. Die
+# Komprimierung schaltet pavlonya-btrfs-komprimierung ein (Arikushi, 09.11.2026).
+for f in /etc/fstab /ostree/deploy/*/deploy/*/etc/fstab; do
+    [ -f "$f" ] && sed -i -E 's|^([^#[:space:]][^[:space:]]*[[:space:]]+/[[:space:]].*)$|# \\1|' "$f"
+done
+true
 %end
 """
 

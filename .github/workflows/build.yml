@@ -98,6 +98,7 @@ jobs:
             nicht grep -Eq "GPU-[0-9a-f]{8}-" /usr/share/pavlonya-os/minimon/gpus
             test -x /usr/bin/pavlonya-wiederherstellen && test -x /usr/libexec/pavlonya-backup
             grep -q "\.config/tabby" /usr/bin/pavlonya-wiederherstellen
+            grep -q "x-systemd.automount,x-systemd.mount-timeout=30" /usr/bin/pavlonya-wiederherstellen   # Storage Box erst beim Zugriff
             grep -q "^Aufruf: pavlonya-monitore-anwenden" <<< "$(/usr/libexec/pavlonya-monitore-anwenden 2>&1 || true)"
             grep -q "bluez5.enable-hw-volume = false" /usr/share/wireplumber/wireplumber.conf.d/51-pavlonya-bluetooth-lautstaerke.conf
             test -L /etc/systemd/user/wireplumber.service.wants/pavlonya-bt-audio-verbinden.service && test -x /usr/libexec/pavlonya-bt-audio-verbinden && test -x /usr/bin/bluetoothctl   # Lautsprecher nach der Anmeldung verbinden

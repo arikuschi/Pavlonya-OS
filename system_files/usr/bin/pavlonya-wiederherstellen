@@ -325,6 +325,11 @@ for w in "${WURZELN[@]}"; do
         SSHFS_ZIELE+=("${ziel}")
         awk -v z="${ziel}" '$2 == z { gefunden = 1 } END { exit !gefunden }' /etc/fstab && continue
         mkdir -p "${ziel}"
+        # Erst beim ersten Zugriff einhängen: sonst wartet der Anmeldebildschirm beim
+        # Start ~5 s auf das Netz (remote-fs.target); ohne Netz bricht der Zugriff
+        # nach 30 s ab (09.11.2026). Zeilen aus Pop!_OS haben die Option noch nicht.
+        [[ ",${optionen}," == *,x-systemd.automount,* ]] \
+            || optionen="x-systemd.automount,x-systemd.mount-timeout=30,${optionen}"
         printf '%s %s %s %s %s\n' "${quelle}" "${ziel}" "${typ}" "${optionen}" "${rest:-0 0}" >> /etc/fstab
         neu+=("${ziel}")
     done < "${w}/etc/fstab"

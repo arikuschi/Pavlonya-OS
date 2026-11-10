@@ -1,6 +1,8 @@
 # Schlüssel
 
-Hierher gehört nur **`cosign.pub`** (öffentlicher Schlüssel). Der private
+Hierher gehören nur öffentliche Schlüssel: **`cosign.pub`** (eigener, zum Signieren des Images) und
+`ublue-akmods.pub` (`cosign.pub` aus ublue-os/akmods — der Bau nimmt die NVIDIA-Module nur mit dieser
+Signatur). Der private
 Schlüssel `cosign.key` kommt als Secret `SIGNING_SECRET` nach GitHub und
 **niemals** ins Repo (steht in .gitignore).
 

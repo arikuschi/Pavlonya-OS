@@ -46,19 +46,44 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
           df -h /
 
+      # GitHub-Angaben kommen über env: in die Skripte, nicht als Text in die Befehlszeile.
       - name: Image-Namen festlegen
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          OWNER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          OWNER="$(echo "${REPO_OWNER}" | tr '[:upper:]' '[:lower:]')"
           echo "IMAGE_REF=ghcr.io/${OWNER}/${IMAGE_NAME}" >> "$GITHUB_ENV"
 
+      # Die NVIDIA-Module samt Kernel kommen fertig gebaut von Universal Blue und
+      # landen im signierten Image: podman (Regel des Runners) nimmt sie nur mit gültiger Signatur
+      # (keys/ublue-akmods.pub = cosign.pub aus ublue-os/akmods). Alle anderen
+      # Images wie bisher.
       - name: Bauen
+        env:
+          REPO: ${{ github.repository }}
         run: |
           set -euxo pipefail
           test -s keys/cosign.pub || { echo "keys/cosign.pub fehlt"; exit 1; }
+          test -s keys/ublue-akmods.pub || { echo "keys/ublue-akmods.pub fehlt"; exit 1; }
+          sudo mkdir -p /etc/containers/registries.d
+          printf 'docker:\n  ghcr.io/ublue-os:\n    use-sigstore-attachments: true\n' \
+            | sudo tee /etc/containers/registries.d/ublue-os.yaml
+          sudo tee /etc/containers/policy.json <<EOF
+          {"default":[{"type":"insecureAcceptAnything"}],
+           "transports":{"docker":{"ghcr.io/ublue-os/akmods-nvidia-open":[
+             {"type":"sigstoreSigned","keyPath":"${GITHUB_WORKSPACE}/keys/ublue-akmods.pub",
+              "signedIdentity":{"type":"matchRepository"}}]}}}
+          EOF
+          # Gegenprobe: mit einem anderen Schlüssel muss der Abruf scheitern — sonst greift die Regel nicht
+          sed "s@keys/ublue-akmods.pub@keys/cosign.pub@" /etc/containers/policy.json > "${RUNNER_TEMP}/gegenprobe.json"
+          if sudo skopeo --policy "${RUNNER_TEMP}/gegenprobe.json" copy \
+              "docker://ghcr.io/ublue-os/akmods-nvidia-open:main-${FEDORA_VERSION}" "dir:${RUNNER_TEMP}/gegenprobe"; then
+            echo "FEHLER: Signaturprüfung der NVIDIA-Module greift nicht" >&2; exit 1
+          fi
           sudo podman build --pull=newer \
             --build-arg FEDORA_VERSION="${FEDORA_VERSION}" \
             --build-arg IMAGE_REF="${IMAGE_REF}" \
-            --label org.opencontainers.image.source="https://github.com/${{ github.repository }}" \
+            --label org.opencontainers.image.source="https://github.com/${REPO}" \
             -t "${IMAGE_NAME}:build" .
 
       - name: Rauchtest
@@ -139,9 +164,10 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
-          echo "${REGISTRY_PASSWORD}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${REGISTRY_PASSWORD}" | sudo podman login ghcr.io -u "${ACTOR}" --password-stdin
           TAGS=( "${FEDORA_VERSION}" "${FEDORA_VERSION}-$(date -u +%Y%m%d)" )
           if [[ "${FEDORA_VERSION}" == "${FEDORA_NEUESTE}" ]]; then TAGS+=( latest ); fi
           for TAG in "${TAGS[@]}"; do
@@ -160,7 +186,8 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
           COSIGN_PASSWORD: ""
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
-          echo "${REGISTRY_PASSWORD}" | cosign login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${REGISTRY_PASSWORD}" | cosign login ghcr.io -u "${ACTOR}" --password-stdin
           cosign sign --yes --key env://COSIGN_PRIVATE_KEY "${IMAGE_REF}@${DIGEST}"

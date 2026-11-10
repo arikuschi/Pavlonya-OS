@@ -2,7 +2,7 @@
 # qcow2-Abbild für die Proxmox-VM 950 bauen (braucht disk_config/vm.toml).
 set -euxo pipefail
 cd "$(dirname "$0")/.."
-IMAGE="${1:-localhost/pavlonya-os:44}"
+IMAGE="${1:-localhost/pavlonya-os:45}"
 test -f disk_config/vm.toml || { echo "disk_config/vm.toml fehlt (Vorlage: vm.toml.example)"; exit 1; }
 mkdir -p output
 [[ "${IMAGE}" == localhost/* ]] || sudo podman pull "${IMAGE}"

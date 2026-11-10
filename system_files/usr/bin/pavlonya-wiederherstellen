@@ -66,9 +66,23 @@ PROGRAMME=n
 [[ "${WUNSCH_HOST}" == pop-os ]] && PROGRAMME=j
 
 GID="$(id -g "${BENUTZER}")"
+# Der Arbeitsordner gehört root. restic läuft als Benutzer und schreibt nur nach
+# ${ZU}. Was root daraus an Systemstellen legt, kopiert es vorher nach ${SYS} (nur
+# root, nur gewöhnliche Dateien) — sonst könnte ein Programm des Benutzers Dateien
+# zwischen Zurückholen und Übernehmen tauschen oder durch Verweise ersetzen.
 ARBEIT="$(mktemp -d /var/tmp/pavlonya-wiederherstellen.XXXX)"
-chown "${BENUTZER}:${GID}" "${ARBEIT}"; chmod 700 "${ARBEIT}"
-printf '%s\n' "${PASSWORT}" > "${ARBEIT}/pw"; chown "${BENUTZER}" "${ARBEIT}/pw"; chmod 600 "${ARBEIT}/pw"
+chown "root:${GID}" "${ARBEIT}"; chmod 710 "${ARBEIT}"
+ZU="${ARBEIT}/zu";   install -d -m700 -o "${BENUTZER}" -g "${GID}" "${ZU}"
+SYS="${ARBEIT}/sys"; install -d -m700 -o root -g root "${SYS}"
+unter_root() {  # unter_root <Name>: ${ZU}/<Name> als Kopie von root nach ${SYS}/<Name>
+    if [[ -d "${ZU}/$1" ]]; then
+        cp -rP --preserve=mode,timestamps "${ZU}/$1" "${SYS}/$1" || return 1
+        find "${SYS}/$1" ! -type f ! -type d -delete
+        chmod -R ug-s "${SYS}/$1"
+        rm -rf "${ZU:?}/$1"
+    fi
+    mkdir -p "${SYS}/$1"
+}
 EINGEHAENGT=0
 aufraeumen() {
     [[ ${EINGEHAENGT} == 1 ]] && umount "${MNT}"
@@ -77,7 +91,7 @@ aufraeumen() {
 trap aufraeumen EXIT
 # Die Probe soll nichts hinterlassen, auch keinen Zwischenspeicher von restic im Home
 CACHE="${HOMEDIR}/.cache/restic"
-(( PROBE )) && CACHE="${ARBEIT}/cache"
+(( PROBE )) && CACHE="${ZU}/cache"
 
 mkdir -p "${MNT}"
 if ! mountpoint -q "${MNT}"; then
@@ -88,11 +102,14 @@ if ! mountpoint -q "${MNT}"; then
     EINGEHAENGT=1
 fi
 # restic als Repo-Besitzer (root hätte auf der NFS-Freigabe evtl. keinen Zugriff);
-# die Dateien landen im Arbeitsordner und werden dann von root an ihren Platz gelegt
+# die Dateien landen im Arbeitsordner und werden dann von root an ihren Platz gelegt.
+# Das Kennwort geht über die Umgebung an restic, nicht als Datei (bliebe bei einem
+# harten Abbruch in /var/tmp liegen) und nicht als Argument (für alle sichtbar).
 restic() {
-    setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
+    RESTIC_PASSWORD="${PASSWORT}" \
+        setpriv --reuid="${BENUTZER}" --regid="${GID}" --init-groups \
         env HOME="${HOMEDIR}" RESTIC_CACHE_DIR="${CACHE}" \
-        RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}" RESTIC_PASSWORD_FILE="${ARBEIT}/pw" \
+        RESTIC_REPOSITORY="${MNT}/${REPO_UNTERORDNER}" \
         /usr/bin/restic "$@"
 }
 # restic restore mit Fortschritt (Prozent, Menge, Dateien, Restzeit) — ohne Anzeige
@@ -206,17 +223,18 @@ INCL=( --include "${NM_DIR}" --include "${CONF_DIR}" --include /run/NetworkManag
 for h in "/home/${BENUTZER}" "/var/home/${BENUTZER}"; do
     INCL+=( --include "${h}/.ssh" )
 done
-restic restore "${SNAP}" --target "${ARBEIT}/r" "${INCL[@]}" \
+restic restore "${SNAP}" --target "${ZU}/r" "${INCL[@]}" \
     > "${ARBEIT}/restore.log" 2>&1 \
     || { echo "Wiederherstellen fehlgeschlagen:"; tail -5 "${ARBEIT}/restore.log"; exit 1; }
+unter_root r || { echo "Zurückgeholte Systemdateien nicht kopierbar (${SYS})."; exit 1; }
 
 ERGEBNIS=()
 
 # --- VPN-Verbindungen ---------------------------------------------------------
 n=0
-if [[ -d "${ARBEIT}/r${NM_DIR}" ]]; then
-    for f in "${ARBEIT}/r${NM_DIR}"/*.nmconnection; do
-        [[ -e "${f}" ]] || continue
+if [[ -d "${SYS}/r${NM_DIR}" ]]; then
+    for f in "${SYS}/r${NM_DIR}"/*.nmconnection; do
+        [[ -f "${f}" ]] || continue
         ziel="${NM_DIR}/$(basename "${f}")"
         if [[ ! -e "${ziel}" ]]; then
             install -m600 -o root -g root "${f}" "${ziel}"
@@ -227,9 +245,9 @@ if [[ -d "${ARBEIT}/r${NM_DIR}" ]]; then
 fi
 # Aus einer Pop!_OS-Sicherung: von netplan erzeugte Dateien — nur VPN und WLAN,
 # Dateiname nach dem Verbindungsnamen (id=)
-if [[ -d "${ARBEIT}/r/run/NetworkManager/system-connections" ]]; then
-    for f in "${ARBEIT}/r/run/NetworkManager/system-connections"/*.nmconnection; do
-        [[ -e "${f}" ]] || continue
+if [[ -d "${SYS}/r/run/NetworkManager/system-connections" ]]; then
+    for f in "${SYS}/r/run/NetworkManager/system-connections"/*.nmconnection; do
+        [[ -f "${f}" ]] || continue
         typ="$(sed -n 's/^type=//p' "${f}" | head -1)"
         [[ "${typ}" =~ ^(wireguard|vpn|wifi|802-11-wireless)$ ]] || continue
         name="$(sed -n 's/^id=//p' "${f}" | head -1)"
@@ -251,8 +269,8 @@ ERGEBNIS+=("VPN-/Netzwerkverbindungen: ${n} übernommen")
 mkdir -p "${CONF_DIR}"
 if [[ -e "${CONF_DIR}/backup.conf" ]]; then
     ERGEBNIS+=("Backup-Einstellungen: schon vorhanden, unverändert")
-elif [[ -e "${ARBEIT}/r${CONF_DIR}/backup.conf" ]]; then
-    install -m600 "${ARBEIT}/r${CONF_DIR}/backup.conf" "${CONF_DIR}/backup.conf"
+elif [[ -f "${SYS}/r${CONF_DIR}/backup.conf" ]]; then
+    install -m600 "${SYS}/r${CONF_DIR}/backup.conf" "${CONF_DIR}/backup.conf"
     ERGEBNIS+=("Backup-Einstellungen: aus der Sicherung übernommen")
 else
     install -m600 /usr/share/pavlonya-os/backup.conf.example "${CONF_DIR}/backup.conf"
@@ -260,22 +278,22 @@ else
     ERGEBNIS+=("Backup-Einstellungen: neu aus der Vorlage (TrueNAS ${NAS})")
 fi
 if [[ ! -e "${CONF_DIR}/restic-passwort" ]]; then
-    install -m600 "${ARBEIT}/pw" "${CONF_DIR}/restic-passwort"
+    ( umask 077; printf '%s\n' "${PASSWORT}" > "${CONF_DIR}/restic-passwort" )
 fi
 command -v restorecon > /dev/null && restorecon -R "${CONF_DIR}"
 
 # --- SSH-Schlüssel ------------------------------------------------------------
 n=0
 for h in "/var/home/${BENUTZER}" "/home/${BENUTZER}"; do
-    quelle="${ARBEIT}/r${h}/.ssh"
+    quelle="${SYS}/r${h}/.ssh"
     [[ -d "${quelle}" ]] || continue
-    install -d -m700 -o "${BENUTZER}" -g "${BENUTZER}" "${HOMEDIR}/.ssh"
+    install -d -m700 -o "${BENUTZER}" -g "${GID}" "${HOMEDIR}/.ssh"
     for f in "${quelle}"/*; do
         [[ -e "${f}" ]] || continue
         ziel="${HOMEDIR}/.ssh/$(basename "${f}")"
         if [[ ! -e "${ziel}" ]]; then
             cp -a "${f}" "${ziel}"
-            chown "${BENUTZER}:${BENUTZER}" "${ziel}"
+            chown -R -h "${BENUTZER}:${GID}" "${ziel}"
             n=$((n + 1))
         fi
     done
@@ -292,12 +310,13 @@ ERGEBNIS+=("SSH-Dateien: ${n} übernommen")
 # Flatpak brauchen den echten Pfad (30.10.2026).
 # Quelle ist die Sicherung von Pavlonya OS; aus Pop!_OS nur beim Umzug (Frage oben)
 # — beide Wege bleiben getrennt (30.10.2026).
-WURZELN=("${ARBEIT}/r")
+WURZELN=("${SYS}/r")
 if [[ "${PROGRAMME,,}" != n* && "${HOST}" != pop-os ]] \
-        && restic restore "${POP_SNAP}" --target "${ARBEIT}/pop" \
+        && restic restore "${POP_SNAP}" --target "${ZU}/pop" \
                --include /etc/fstab --include /root/.ssh \
-               --include /etc/cups/printers.conf --include /etc/cups/ppd >> "${ARBEIT}/programme.log" 2>&1; then
-    WURZELN+=("${ARBEIT}/pop")
+               --include /etc/cups/printers.conf --include /etc/cups/ppd >> "${ARBEIT}/programme.log" 2>&1 \
+        && unter_root pop; then
+    WURZELN+=("${SYS}/pop")
 fi
 n=0
 for w in "${WURZELN[@]}"; do
@@ -309,7 +328,7 @@ for w in "${WURZELN[@]}"; do
             ziel="/root/.ssh/$(basename "${f}")"
             if [[ ! -e "${ziel}" ]]; then
                 cp -a "${f}" "${ziel}"
-                chown root:root "${ziel}"
+                chown -h root:root "${ziel}"
                 n=$((n + 1))
             fi
         done
@@ -371,7 +390,7 @@ else
         systemctl stop cups    # CUPS schreibt printers.conf beim Beenden neu
         install -m600 -o root -g lp "${quelle}/etc/cups/printers.conf" /etc/cups/printers.conf
         for f in "${quelle}/etc/cups/ppd"/*.ppd; do
-            [[ -e "${f}" ]] && install -m640 -o root -g lp "${f}" /etc/cups/ppd/
+            [[ -f "${f}" ]] && install -m640 -o root -g lp "${f}" /etc/cups/ppd/
         done
         command -v restorecon > /dev/null && restorecon -R /etc/cups
         systemctl start cups
@@ -485,7 +504,7 @@ for p in sys.argv[3:]:
         ERGEBNIS+=("   Schlüsselbund: nicht übernommen — Browser, Bitwarden, Claude, VS Code neu anmelden")
     fi
     if [[ -e "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron" ]]; then
-        cp "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron" "${ARBEIT}/outputs.ron"
+        install -m644 "${HOMEDIR}/.local/state/cosmic-comp/outputs.ron" "${ARBEIT}/outputs.ron"
         monitore_einstellen "${ARBEIT}/outputs.ron"
     fi
     # Benutzer-Timer (Forgejo-Dump) laufen auch ohne Anmeldung
@@ -508,20 +527,20 @@ COSMIC_EINSTELLUNGEN=(
 INCL=(); for e in "${COSMIC_EINSTELLUNGEN[@]}"; do INCL+=(--include "/${e}"); done
 if [[ "${PROGRAMME,,}" == n* ]]; then
     :   # Pavlonya OS: kommt oben mit dem Home
-elif restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${ARBEIT}/cosmic" \
+elif restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${ZU}/cosmic" \
         "${INCL[@]}" >> "${ARBEIT}/programme.log" 2>&1; then
     da=()
     for e in "${COSMIC_EINSTELLUNGEN[@]}"; do
-        [[ -e "${ARBEIT}/cosmic/${e}" ]] || continue
+        [[ -e "${ZU}/cosmic/${e}" ]] || continue
         install -d -m755 -o "${BENUTZER}" -g "${GID}" "$(dirname "${HOMEDIR}/${e}")"
         rm -rf "${HOMEDIR:?}/${e}"
-        cp -a "${ARBEIT}/cosmic/${e}" "${HOMEDIR}/${e}"
-        chown -R "${BENUTZER}:${GID}" "${HOMEDIR}/${e}"
+        cp -a "${ZU}/cosmic/${e}" "${HOMEDIR}/${e}"
+        chown -R -h "${BENUTZER}:${GID}" "${HOMEDIR}/${e}"
         da+=("${e##*/}")
     done
     command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/.config/cosmic" "${HOMEDIR}/.local/state" 2> /dev/null
     ERGEBNIS+=("COSMIC: ${#da[@]} von ${#COSMIC_EINSTELLUNGEN[@]} übernommen (${da[*]})")
-    monitore_einstellen "${ARBEIT}/cosmic/.local/state/cosmic-comp/outputs.ron"
+    monitore_einstellen "${ZU}/cosmic/.local/state/cosmic-comp/outputs.ron"
 else
     ERGEBNIS+=("COSMIC: Einstellungen nicht in der Sicherung")
 fi
@@ -537,13 +556,13 @@ if [[ "${PROGRAMME,,}" == n* ]]; then
 elif [[ -f "${CRYPTO}" ]] && grep -q '"path"' "${CRYPTO}"; then
     ERGEBNIS+=("Cryptomator: Tresore schon eingetragen, unverändert")
 elif restic restore "${POP_SNAP}:/home/${BENUTZER}/.config/Cryptomator" \
-        --target "${ARBEIT}/cryptomator" >> "${ARBEIT}/programme.log" 2>&1 \
-        && [[ -f "${ARBEIT}/cryptomator/settings.json" ]]; then
+        --target "${ZU}/cryptomator" >> "${ARBEIT}/programme.log" 2>&1 \
+        && [[ -f "${ZU}/cryptomator/settings.json" ]]; then
     while pgrep -u "${BENUTZER}" -f org.cryptomator > /dev/null; do
         read -rp "Cryptomator läuft — bitte schließen, dann Enter … " _
     done
     install -d -m755 -o "${BENUTZER}" -g "${GID}" "${HOMEDIR}/.config/Cryptomator"
-    sed 's#"/mnt/#"/var/mnt/#g' "${ARBEIT}/cryptomator/settings.json" > "${CRYPTO}"
+    sed 's#"/mnt/#"/var/mnt/#g' "${ZU}/cryptomator/settings.json" > "${CRYPTO}"
     chown "${BENUTZER}:${GID}" "${CRYPTO}"; chmod 644 "${CRYPTO}"
     command -v restorecon > /dev/null && restorecon -R "${HOMEDIR}/.config/Cryptomator"
     ERGEBNIS+=("Cryptomator: Tresorliste aus Pop!_OS übernommen — Tresor-Kennwort einmal neu eingeben")
@@ -638,13 +657,13 @@ if [[ "${PROGRAMME,,}" != n* ]]; then
     fi
     # Eigene Zeilen der Pop!_OS-.bashrc (Bitwarden-SSH-Agent für Forgejo, ~/.local/bin);
     # der Rest der Datei sind Pop!_OS-Vorgaben und bleibt weg
-    if restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${ARBEIT}/bashrc" \
-            --include /.bashrc >> "${ARBEIT}/programme.log" 2>&1 && [[ -f "${ARBEIT}/bashrc/.bashrc" ]]; then
+    if restic restore "${POP_SNAP}:/home/${BENUTZER}" --target "${ZU}/bashrc" \
+            --include /.bashrc >> "${ARBEIT}/programme.log" 2>&1 && [[ -f "${ZU}/bashrc/.bashrc" ]]; then
         n=0
         while IFS= read -r zeile; do
             grep -qxF "${zeile}" "${HOMEDIR}/.bashrc" 2> /dev/null && continue
             echo "${zeile}" >> "${HOMEDIR}/.bashrc"; n=$((n + 1))
-        done < <(grep '^export ' "${ARBEIT}/bashrc/.bashrc")
+        done < <(grep '^export ' "${ZU}/bashrc/.bashrc")
         chown "${BENUTZER}:${GID}" "${HOMEDIR}/.bashrc"
         ERGEBNIS+=("   .bashrc: ${n} eigene Zeilen ergänzt")
     fi

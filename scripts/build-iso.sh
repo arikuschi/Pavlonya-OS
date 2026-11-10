@@ -21,7 +21,7 @@ sudo podman run --rm -it --privileged --pull=newer \
     --type anaconda-iso --rootfs btrfs --chown "$(id -u):$(id -g)" \
     "${IMAGE}"
 # bootc-image-builder nennt die Datei immer install.iso — hier sprechend
-# umbenennen: pavlonya-os-<tag>.iso (Tag aus dem Image, z. B. 44)
+# umbenennen: pavlonya-os-<tag>.iso (Tag aus dem Image, z. B. 45)
 TAG="${IMAGE##*:}"
 mv -f output/bootiso/install.iso "output/pavlonya-os-${TAG}.iso"
 rm -rf output/bootiso
